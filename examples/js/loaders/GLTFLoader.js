@@ -134,6 +134,10 @@ THREE.GLTFLoader = ( function () {
 							extensions[ extensionName ] = new GLTFLightsExtension( json );
 							break;
 
+						case EXTENSIONS.KHR_MATERIALS_COMMON:
+							extensions[ extensionName ] = new GLTFMaterialsCommonExtension( json );
+							break;
+
 						case EXTENSIONS.KHR_MATERIALS_UNLIT:
 							extensions[ extensionName ] = new GLTFMaterialsUnlitExtension( json );
 							break;
@@ -240,7 +244,8 @@ THREE.GLTFLoader = ( function () {
 		KHR_LIGHTS: 'KHR_lights',
 		KHR_MATERIALS_PBR_SPECULAR_GLOSSINESS: 'KHR_materials_pbrSpecularGlossiness',
 		KHR_MATERIALS_UNLIT: 'KHR_materials_unlit',
-		MSFT_TEXTURE_DDS: 'MSFT_texture_dds'
+		MSFT_TEXTURE_DDS: 'MSFT_texture_dds',
+		KHR_MATERIALS_COMMON: 'KHR_materials_common'
 	};
 
 	/**
@@ -515,7 +520,7 @@ THREE.GLTFLoader = ( function () {
 			}
 
 			if ( materialValues.transparency !== undefined ) {
-        
+
 				if ( materialParams.opacity === undefined ) {
 
 					materialParams.opacity = 1.0;
@@ -532,6 +537,7 @@ THREE.GLTFLoader = ( function () {
 				material.alphaMode = ALPHA_MODES.BLEND; // read later
 
 			}
+
 		}
 
 		return Promise.all( pending );
@@ -2269,6 +2275,12 @@ THREE.GLTFLoader = ( function () {
 			var kmuExtension = extensions[ EXTENSIONS.KHR_MATERIALS_UNLIT ];
 			materialType = kmuExtension.getMaterialType( materialDef );
 			pending.push( kmuExtension.extendParams( materialParams, materialDef, parser ) );
+
+		} else if ( materialExtensions[ EXTENSIONS.KHR_MATERIALS_COMMON ] ) {
+
+			var sgExtension = extensions[ EXTENSIONS.KHR_MATERIALS_COMMON ];
+			materialType = sgExtension.getMaterialType( materialDef );
+			pending.push( sgExtension.extendParams( materialParams, materialDef, parser ) );
 
 		} else {
 
