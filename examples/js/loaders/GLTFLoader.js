@@ -2230,6 +2230,9 @@ THREE.GLTFLoader = ( function () {
 
 			}
 
+			//set the property to ENVMAP_BLENDING_ADD to have the same rendering as the ARDK engine
+			material.combine = THREE.AddOperation;
+
 			if ( materialDef.name !== undefined ) material.name = materialDef.name;
 
 			// Normal map textures use OpenGL conventions:
