@@ -552,6 +552,22 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 
 			}
 
+		} else if ( THREE.ImageGifLoader !== undefined && texture.isAnimatedTexture ) {
+
+			var frame = texture.getFrame();
+
+			if ( frame.partial ) {
+
+				state.texSubImage2D( _gl.TEXTURE_2D, 0, frame.left, frame.top, frame.width, frame.height, glFormat, glType, frame.data );
+				textureProperties.__maxMipLevel = 0;
+
+			} else {
+
+				state.texImage2D( _gl.TEXTURE_2D, 0, glFormat, frame.width, frame.height, 0, glFormat, glType, frame.data );
+				textureProperties.__maxMipLevel = 0;
+
+			}
+
 		} else if ( texture.isCompressedTexture ) {
 
 			for ( var i = 0, il = mipmaps.length; i < il; i ++ ) {
