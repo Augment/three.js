@@ -17,6 +17,7 @@ var UniformsLib = {
 		uvTransform: { value: new Matrix3() },
 
 		alphaMap: { value: null },
+		opacityRenderingMode: { value: 0 }
 
 	},
 

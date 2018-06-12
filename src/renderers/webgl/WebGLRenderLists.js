@@ -2,6 +2,8 @@
  * @author mrdoob / http://mrdoob.com/
  */
 
+import { AugmentMaterialOpacityModeMixed } from '../../constants.js';
+
 function painterSortStable( a, b ) {
 
 	if ( a.renderOrder !== b.renderOrder ) {
@@ -95,7 +97,21 @@ function WebGLRenderList() {
 
 		}
 
-		( material.transparent === true ? transparent : opaque ).push( renderItem );
+		if ( ! material.transparent ) {
+
+			opaque.push( renderItem );
+
+		} else {
+
+			if ( material.opacityMode == AugmentMaterialOpacityModeMixed ) {
+
+			  opaque.push( renderItem );
+
+			}
+
+			transparent.push( renderItem );
+
+		}
 
 		renderItemsIndex ++;
 
