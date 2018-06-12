@@ -2247,13 +2247,6 @@ THREE.GLTFLoader = ( function () {
 
 			}
 
-			// Fix issues when rendering multiple transparent objects
-			if ( ( material.opacity !== undefined && material.opacity < 1.0 ) || ( material.alphaMap != undefined ) ) {
-
-				material.depthWrite = false;
-
-			}
-
 			// baseColorTexture, emissiveTexture, and specularGlossinessTexture use sRGB encoding.
 			if ( material.map ) material.map.encoding = THREE.sRGBEncoding;
 			if ( material.emissiveMap ) material.emissiveMap.encoding = THREE.sRGBEncoding;
