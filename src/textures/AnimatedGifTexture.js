@@ -55,14 +55,15 @@ Object.assign( AnimatedGifTexture.prototype, {
 
 	setFramesData: function ( data ) {
 
+		function onUpdate() {
+
+			self.needsUpdate = true;
+
+		}
+
 		if ( data ) {
 
 			var self = this;
-			function onUpdate() {
-
-				self.needsUpdate = true;
-
-			}
 
 			this.animation = new AnimatedGifTextureAnimation( this.prepareFullFrames( data ), onUpdate );
 
