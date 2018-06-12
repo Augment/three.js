@@ -2080,6 +2080,10 @@ THREE.GLTFLoader = ( function () {
 
 			materialParams[ textureName ] = texture;
 
+		} ).catch( function () {
+
+			materialParams[ textureName ] = undefined;
+
 		} );
 
 	};
