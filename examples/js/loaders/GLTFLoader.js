@@ -483,6 +483,13 @@ THREE.GLTFLoader = ( function () {
 
 			}
 
+			// fix default values (the default color is white in the GLTFLoader and black in KHR_materials_common)
+			if ( materialValues.diffuseFactor === undefined && materialValues.diffuseTexture === undefined ) {
+
+				materialParams.color = new THREE.Color( 0x000000 );
+
+			}
+
 			if ( materialValues.doubleSided === true ) {
 
 				materialParams.side = THREE.DoubleSide;
