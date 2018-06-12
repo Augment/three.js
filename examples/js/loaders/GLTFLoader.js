@@ -2434,6 +2434,13 @@ THREE.GLTFLoader = ( function () {
 
 			}
 
+			material.opacityMode = THREE.MaterialOpacityModeStandard;
+			if ( material.extras && material.extras.opacityMode === "agtmixed" ) {
+
+				material.opacityMode = THREE.MaterialOpacityModeMixed;
+
+			}
+
 			// baseColorTexture, emissiveTexture, and specularGlossinessTexture use sRGB encoding.
 			if ( material.map ) material.map.encoding = THREE.sRGBEncoding;
 			if ( material.emissiveMap ) material.emissiveMap.encoding = THREE.sRGBEncoding;
