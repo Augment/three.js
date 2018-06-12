@@ -6,6 +6,7 @@ import { AnimatedGifTexture } from '../textures/AnimatedGifTexture.js';
 import { FileLoader } from './FileLoader.js';
 import { DefaultLoadingManager } from './LoadingManager.js';
 import { GifReader } from '../extras/images/GifReader.js';
+import { RGBAFormat, UnsignedByteType } from '../constants.js';
 
 function ImageGifLoader( manager ) {
 
@@ -41,8 +42,8 @@ Object.assign( ImageGifLoader.prototype, {
 
 			}
 
-			texture.format = THREE.RGBAFormat;
-			texture.type = THREE.UnsignedByteType;
+			texture.format = RGBAFormat;
+			texture.type = UnsignedByteType;
 
 			texture.needsUpdate = true;
 

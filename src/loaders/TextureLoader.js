@@ -26,7 +26,7 @@ Object.assign( TextureLoader.prototype, {
 
 		if ( isGIF ) {
 
-			if ( THREE.ImageGifLoader !== undefined ) {
+			if ( THREE.ImageGifLoader == undefined ) {
 
 				onError( new Error( 'THREE.TextureLoader: gif format is not supported' ) );
 				return;

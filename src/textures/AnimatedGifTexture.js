@@ -2,11 +2,13 @@
  * @author augment
  */
 
+import { Texture } from './Texture.js';
 import { AnimatedGifTextureAnimation } from './AnimatedGifTextureAnimation.js';
+import { NearestFilter, ClampToEdgeWrapping } from '../constants.js';
 
 function AnimatedGifTexture( framesData, width, height, format, type, mapping, wrapS, wrapT, magFilter, minFilter, anisotropy, encoding ) {
 
-	THREE.Texture.call( this, null, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy, encoding );
+	Texture.call( this, null, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy, encoding );
 
 	this.image = {
 		data: null,
@@ -14,10 +16,10 @@ function AnimatedGifTexture( framesData, width, height, format, type, mapping, w
 		height: height
 	};
 
-	this.magFilter = THREE.NearestFilter;
-	this.minFilter = THREE.NearestFilter;
-	this.wrapS = THREE.ClampToEdgeWrapping;
-	this.wrapT = THREE.ClampToEdgeWrapping;
+	this.magFilter = NearestFilter;
+	this.minFilter = NearestFilter;
+	this.wrapS = ClampToEdgeWrapping;
+	this.wrapT = ClampToEdgeWrapping;
 
 	this.generateMipmaps = false;
 	this.flipY = false;
@@ -32,7 +34,7 @@ function AnimatedGifTexture( framesData, width, height, format, type, mapping, w
 
 }
 
-AnimatedGifTexture.prototype = Object.create( THREE.Texture.prototype );
+AnimatedGifTexture.prototype = Object.create( Texture.prototype );
 AnimatedGifTexture.prototype.constructor = AnimatedGifTexture;
 
 AnimatedGifTexture.prototype.isAnimatedTexture = true;
@@ -47,7 +49,7 @@ Object.assign( AnimatedGifTexture.prototype, {
 
 		}
 
-		THREE.Texture.prototype.dispose.call( this );
+		Texture.prototype.dispose.call( this );
 
 	},
 
