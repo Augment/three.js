@@ -2435,7 +2435,7 @@ THREE.GLTFLoader = ( function () {
 			}
 
 			material.opacityMode = THREE.MaterialOpacityModeStandard;
-			if ( material.extras && material.extras.opacityMode === "agtmixed" ) {
+			if ( materialDef.extras && materialDef.extras.opacityMode === "agtmixed" ) {
 
 				material.opacityMode = THREE.MaterialOpacityModeMixed;
 
