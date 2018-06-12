@@ -147,5 +147,6 @@ export { CurvePath } from './extras/core/CurvePath.js';
 export { Curve } from './extras/core/Curve.js';
 export { ShapeUtils } from './extras/ShapeUtils.js';
 export { WebGLUtils } from './renderers/webgl/WebGLUtils.js';
+export * from './extensions/gif.js';
 export * from './constants.js';
 export * from './Three.Legacy.js';

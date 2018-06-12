@@ -20,29 +20,60 @@ Object.assign( TextureLoader.prototype, {
 
 	load: function ( url, onLoad, onProgress, onError ) {
 
-		var texture = new Texture();
+		var texture = null;
 
-		var loader = new ImageLoader( this.manager );
-		loader.setCrossOrigin( this.crossOrigin );
-		loader.setPath( this.path );
+		var isGIF = url.search( /\.gif$/ ) > 0 || url.search( /^data\:image\/gif/ ) === 0;
 
-		loader.load( url, function ( image ) {
+		if ( isGIF ) {
 
-			texture.image = image;
+			if ( THREE.ImageGifLoader == undefined ) {
 
-			// JPEGs can't have an alpha channel, so memory can be saved by storing them as RGB.
-			var isJPEG = url.search( /\.(jpg|jpeg)$/ ) > 0 || url.search( /^data\:image\/jpeg/ ) === 0;
-
-			texture.format = isJPEG ? RGBFormat : RGBAFormat;
-			texture.needsUpdate = true;
-
-			if ( onLoad !== undefined ) {
-
-				onLoad( texture );
+				onError( new Error( 'THREE.TextureLoader: gif format is not supported' ) );
+				return;
 
 			}
 
-		}, onProgress, onError );
+			var gifLoader = new THREE.ImageGifLoader( this.manager );
+			gifLoader.setCrossOrigin( this.crossOrigin );
+			gifLoader.setPath( this.path );
+			gifLoader.load( url, function ( texture ) {
+
+				if ( onLoad !== undefined ) {
+
+					texture.animation.start();
+
+					onLoad( texture );
+
+				}
+
+			}, onProgress, onError );
+
+		} else {
+
+			var loader = new ImageLoader( this.manager );
+			loader.setCrossOrigin( this.crossOrigin );
+			loader.setPath( this.path );
+
+			texture = new Texture();
+			loader.load( url, function ( image ) {
+
+				texture.image = image;
+
+				// JPEGs can't have an alpha channel, so memory can be saved by storing them as RGB.
+				var isJPEG = url.search( /\.(jpg|jpeg)$/ ) > 0 || url.search( /^data\:image\/jpeg/ ) === 0;
+
+				texture.format = isJPEG ? RGBFormat : RGBAFormat;
+				texture.needsUpdate = true;
+
+				if ( onLoad !== undefined ) {
+
+					onLoad( texture );
+
+				}
+
+			}, onProgress, onError );
+
+		}
 
 		return texture;
 
