@@ -2154,13 +2154,6 @@ THREE.GLTFLoader = ( function () {
 
 		}
 
-		// fix default values (the default color is white in the GLTFLoader and black in KHR_materials_common)
-		if ( materialDef.diffuseFactor === undefined && materialDef.diffuseTexture === undefined ) {
-
-			materialParams.color = new THREE.Color( 0x000000 );
-
-		}
-
 		if ( materialDef.doubleSided === true ) {
 
 			materialParams.side = THREE.DoubleSide;
@@ -2244,6 +2237,13 @@ THREE.GLTFLoader = ( function () {
 			if ( material.normalScale ) {
 
 				material.normalScale.y = - material.normalScale.y;
+
+			}
+
+			// Fix issues when rendering multiple transparent objects
+			if ( ( material.opacity !== undefined && material.opacity < 1.0 ) || ( material.alphaMap != undefined ) ) {
+
+				material.depthWrite = false;
 
 			}
 
