@@ -9,7 +9,14 @@ import {
 	TrianglesDrawMode,
 	NoColors,
 	LinearToneMapping,
-	BackSide
+	BackSide,
+	AugmentObjectRenderingModeOpaque,
+	AugmentObjectRenderingModeTransparent,
+	AugmentMaterialOpacityModeStandard,
+	AugmentMaterialOpacityModeMixed,
+	AugmentMaterialRenderingModeStandard,
+	AugmentMaterialRenderingModeMixedOpaque,
+	AugmentMaterialRenderingModeMixedTransparent
 } from '../constants.js';
 import { _Math } from '../math/Math.js';
 import { DataTexture } from '../textures/DataTexture.js';
@@ -1134,18 +1141,18 @@ function WebGLRenderer( parameters ) {
 
 			var overrideMaterial = scene.overrideMaterial;
 
-			if ( opaqueObjects.length ) renderObjects( opaqueObjects, scene, camera, overrideMaterial );
-			if ( transparentObjects.length ) renderObjects( transparentObjects, scene, camera, overrideMaterial );
+			if ( opaqueObjects.length ) renderObjects( opaqueObjects, scene, camera, overrideMaterial, { depthWrite: true }, AugmentObjectRenderingModeOpaque );
+			if ( transparentObjects.length ) renderObjects( transparentObjects, scene, camera, overrideMaterial, { depthWrite: false }, AugmentObjectRenderingModeTransparent );
 
 		} else {
 
 			// opaque pass (front-to-back order)
 
-			if ( opaqueObjects.length ) renderObjects( opaqueObjects, scene, camera );
+			if ( opaqueObjects.length ) renderObjects( opaqueObjects, scene, camera, undefined, { depthWrite: true }, AugmentObjectRenderingModeOpaque );
 
 			// transparent pass (back-to-front order)
 
-			if ( transparentObjects.length ) renderObjects( transparentObjects, scene, camera );
+			if ( transparentObjects.length ) renderObjects( transparentObjects, scene, camera, undefined, { depthWrite: false }, AugmentObjectRenderingModeTransparent );
 
 		}
 
@@ -1337,7 +1344,7 @@ function WebGLRenderer( parameters ) {
 
 	}
 
-	function renderObjects( renderList, scene, camera, overrideMaterial ) {
+	function renderObjects( renderList, scene, camera, overrideMaterial, overrideMaterialProperties, renderingMode ) {
 
 		for ( var i = 0, l = renderList.length; i < l; i ++ ) {
 
@@ -1347,6 +1354,34 @@ function WebGLRenderer( parameters ) {
 			var geometry = renderItem.geometry;
 			var material = overrideMaterial === undefined ? renderItem.material : overrideMaterial;
 			var group = renderItem.group;
+
+			if ( overrideMaterialProperties !== undefined ) {
+
+				for ( var property in overrideMaterialProperties ) {
+
+					if ( material[ property ] !== undefined ) {
+
+						material[ property ] = overrideMaterialProperties[ property ];
+
+					}
+
+				}
+
+			}
+
+			if ( material.transparent && material.opacityMode === AugmentMaterialOpacityModeMixed ) {
+
+				if ( renderingMode === AugmentObjectRenderingModeOpaque ) {
+
+					material.opacityEffectiveMode = AugmentMaterialRenderingModeMixedOpaque;
+
+				} else if ( renderingMode === AugmentObjectRenderingModeTransparent ) {
+
+					material.opacityEffectiveMode = AugmentMaterialRenderingModeMixedTransparent;
+
+				}
+
+			}
 
 			if ( camera.isArrayCamera ) {
 
@@ -1777,6 +1812,43 @@ function WebGLRenderer( parameters ) {
 
 		}
 
+		if ( ! refreshMaterial && material.transparent ) {
+
+			if ( material.isMeshBasicMaterial || material.isMeshLambertMaterial || material.isMeshPhongMaterial || material.isMeshStandardMaterial || material.isMeshDepthMaterial || material.isMeshDistanceMaterial || material.isMeshNormalMaterial || material.isShadowMaterial ) {
+
+				refreshUniformsOpacity( m_uniforms, material );
+
+				var materialOpacityUniformsList = [], opacityUniforms = {};
+				if ( material.opacity != undefined ) {
+
+					opacityUniforms.opacity = m_uniforms.opacity;
+
+				}
+
+				if ( material.opacity != undefined ) {
+
+					opacityUniforms.opacityRenderingMode = m_uniforms.opacityRenderingMode;
+
+				}
+
+				for ( var u = 0, uend = materialProperties.uniformsList.length; u < uend; ++ u ) {
+
+					var materialPropertiesUniform = materialProperties.uniformsList[ u ];
+
+					if ( opacityUniforms[ materialPropertiesUniform.id ] != undefined ) {
+
+						materialOpacityUniformsList.push( materialPropertiesUniform );
+
+					}
+
+				}
+
+				WebGLUniforms.upload( _gl, materialOpacityUniformsList, opacityUniforms, _this );
+
+			}
+
+		}
+
 		if ( refreshMaterial ) {
 
 			p_uniforms.setValue( _gl, 'toneMappingExposure', _this.toneMappingExposure );
@@ -1909,7 +1981,7 @@ function WebGLRenderer( parameters ) {
 
 	function refreshUniformsCommon( uniforms, material ) {
 
-		uniforms.opacity.value = material.opacity;
+		refreshUniformsOpacity( uniforms, material );
 
 		if ( material.color ) {
 
@@ -2038,6 +2110,20 @@ function WebGLRenderer( parameters ) {
 			uniforms.uvTransform.value.copy( uvScaleMap.matrix );
 
 		}
+
+	}
+
+	function refreshUniformsOpacity( uniforms, material ) {
+
+		uniforms.opacity.value = material.opacity;
+
+		if ( uniforms.opacityRenderingMode == undefined ) {
+
+			uniforms.opacityRenderingMode = { value: AugmentMaterialRenderingModeStandard };
+
+		}
+
+		uniforms.opacityRenderingMode.value = material.opacityEffectiveMode;
 
 	}
 

@@ -1,5 +1,5 @@
 import { EventDispatcher } from '../core/EventDispatcher.js';
-import { NoColors, FrontSide, FlatShading, NormalBlending, LessEqualDepth, AddEquation, OneMinusSrcAlphaFactor, SrcAlphaFactor } from '../constants.js';
+import { NoColors, FrontSide, FlatShading, NormalBlending, LessEqualDepth, AddEquation, OneMinusSrcAlphaFactor, SrcAlphaFactor, AugmentMaterialOpacityModeStandard, AugmentMaterialRenderingModeStandard } from '../constants.js';
 import { _Math } from '../math/Math.js';
 
 /**
@@ -28,6 +28,8 @@ function Material() {
 
 	this.opacity = 1;
 	this.transparent = false;
+	this.opacityMode = AugmentMaterialOpacityModeStandard;
+	this.opacityEffectiveMode = AugmentMaterialRenderingModeStandard;
 
 	this.blendSrc = SrcAlphaFactor;
 	this.blendDst = OneMinusSrcAlphaFactor;
