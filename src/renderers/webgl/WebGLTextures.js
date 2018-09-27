@@ -3,7 +3,9 @@
  */
 
 import { LinearFilter, NearestFilter, RGBFormat, RGBAFormat, DepthFormat, DepthStencilFormat, UnsignedShortType, UnsignedIntType, UnsignedInt248Type, FloatType, HalfFloatType, ClampToEdgeWrapping, NearestMipMapLinearFilter, NearestMipMapNearestFilter } from '../../constants.js';
+import { ImageGifLoader } from '../../extensions/gif.js';
 import { _Math } from '../../math/Math.js';
+
 
 function WebGLTextures( _gl, extensions, state, properties, capabilities, utils, info ) {
 
@@ -552,7 +554,7 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 
 			}
 
-		} else if ( THREE.ImageGifLoader !== undefined && texture.isAnimatedTexture ) {
+		} else if ( ImageGifLoader !== undefined && texture.isAnimatedTexture ) {
 
 			var frame = texture.getFrame();
 
