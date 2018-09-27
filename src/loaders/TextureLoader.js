@@ -2,6 +2,7 @@ import { RGBAFormat, RGBFormat } from '../constants.js';
 import { ImageLoader } from './ImageLoader.js';
 import { Texture } from '../textures/Texture.js';
 import { Loader } from './Loader.js';
+import { ImageGifLoader } from '../extensions/gif.js';
 
 function TextureLoader( manager ) {
 
@@ -21,14 +22,14 @@ TextureLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 
 		if ( isGIF ) {
 
-			if ( THREE.ImageGifLoader == undefined ) {
+			if ( ImageGifLoader == undefined ) {
 
 				onError( new Error( 'THREE.TextureLoader: gif format is not supported' ) );
 				return;
 
 			}
 
-			var gifLoader = new THREE.ImageGifLoader( this.manager );
+			var gifLoader = new ImageGifLoader( this.manager );
 			gifLoader.setCrossOrigin( this.crossOrigin );
 			gifLoader.setPath( this.path );
 			gifLoader.load( url, function ( texture ) {
