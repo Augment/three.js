@@ -47,7 +47,7 @@ THREE.MMDPhysics = ( function () {
 		this.maxStepNum = ( params.maxStepNum !== undefined ) ? params.maxStepNum : 3;
 		this.gravity = new THREE.Vector3( 0, - 9.8 * 10, 0 );
 
-		if ( params.gravity !== undefined ) this.gravity.copy( gravity );
+		if ( params.gravity !== undefined ) this.gravity.copy( params.gravity );
 
 		this.world = params.world !== undefined ? params.world : null; // experimental
 
@@ -116,7 +116,7 @@ THREE.MMDPhysics = ( function () {
 
 			if ( isNonDefaultScale ) {
 
-				if ( parent !== null ) parent.parent = parent;
+				if ( parent !== null ) mesh.parent = parent;
 
 				mesh.scale.copy( scale );
 
@@ -746,8 +746,8 @@ THREE.MMDPhysics = ( function () {
 				s = Math.sqrt( t + 1.0 ) * 2;
 				w = 0.25 * s;
 				x = ( m[ 7 ] - m[ 5 ] ) / s;
-				y = ( m[ 2 ] - m[ 6 ] ) / s; 
-				z = ( m[ 3 ] - m[ 1 ] ) / s; 
+				y = ( m[ 2 ] - m[ 6 ] ) / s;
+				z = ( m[ 3 ] - m[ 1 ] ) / s;
 
 			} else if( ( m[ 0 ] > m[ 4 ] ) && ( m[ 0 ] > m[ 8 ] ) ) {
 
@@ -994,14 +994,8 @@ THREE.MMDPhysics = ( function () {
 		_getWorldTransformForBone: function () {
 
 			var manager = this.manager;
-
-			var tr = manager.allocTransform();
-			this.body.getMotionState().getWorldTransform( tr );
-			var tr2 = manager.multiplyTransforms( tr, this.boneOffsetFormInverse );
-
-			manager.freeTransform( tr );
-
-			return tr2;
+			var tr = this.body.getCenterOfMassTransform();
+			return manager.multiplyTransforms( tr, this.boneOffsetFormInverse );
 
 		},
 
@@ -1057,7 +1051,11 @@ THREE.MMDPhysics = ( function () {
 			//this.bone.quaternion.multiply( thQ2 );
 
 			thQ3.setFromRotationMatrix( this.bone.matrix );
-			this.bone.quaternion.copy( thQ2.multiply( thQ3 ) );
+
+			// Renormalizing quaternion here because repeatedly transforming
+			// quaternion continuously accumulates floating point error and
+			// can end up being overflow. See #15335
+			this.bone.quaternion.copy( thQ2.multiply( thQ3 ).normalize() );
 
 			manager.freeThreeQuaternion( thQ );
 			manager.freeThreeQuaternion( thQ2 );
@@ -1079,8 +1077,13 @@ THREE.MMDPhysics = ( function () {
 			var o = manager.getOrigin( tr );
 			thV.set( o.x(), o.y(), o.z() );
 
-			var v = this.bone.worldToLocal( thV );
-			this.bone.position.add( v );
+			if ( this.bone.parent ) {
+
+				this.bone.parent.worldToLocal( thV );
+
+			}
+
+			this.bone.position.copy( thV );
 
 			manager.freeThreeVector3( thV );
 
@@ -1348,7 +1351,6 @@ THREE.MMDPhysics = ( function () {
 
 		_init: function () {
 
-			var mesh = this.root;
 			var bodies = this.physics.bodies;
 
 			function createGeometry( param ) {

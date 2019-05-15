@@ -42,12 +42,16 @@
 		<script src="js/loaders/GLTFLoader.js"></script>
 		<script src="js/loaders/VRMLoader.js"></script>
 
-		<script src="js/Detector.js"></script>
+		<script src="js/WebGL.js"></script>
 		<script src="js/libs/stats.min.js"></script>
 
 		<script>
 
-			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+			if ( WEBGL.isWebGLAvailable() === false ) {
+
+				document.body.appendChild( WEBGL.getWebGLErrorMessage() );
+
+			}
 
 			var container, stats, controls;
 			var camera, scene, renderer, light;
@@ -62,10 +66,6 @@
 
 				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.25, 20 );
 				camera.position.set( 0, 1.6, - 2.2 );
-
-				controls = new THREE.OrbitControls( camera );
-				controls.target.set( 0, 0.9, 0 );
-				controls.update();
 
 				scene = new THREE.Scene();
 
@@ -92,6 +92,9 @@
 									material.color.copy( object.material[ i ].color );
 									material.map = object.material[ i ].map;
 									material.lights = false;
+									material.skinning = object.material[ i ].skinning;
+									material.morphTargets = object.material[ i ].morphTargets;
+									material.morphNormals = object.material[ i ].morphNormals;
 									object.material[ i ] = material;
 
 								}
@@ -103,6 +106,9 @@
 								material.color.copy( object.material.color );
 								material.map = object.material.map;
 								material.lights = false;
+								material.skinning = object.material.skinning;
+								material.morphTargets = object.material.morphTargets;
+								material.morphNormals = object.material.morphNormals;
 								object.material = material;
 
 							}
@@ -120,6 +126,10 @@
 				renderer.setSize( window.innerWidth, window.innerHeight );
 				renderer.gammaOutput = true;
 				container.appendChild( renderer.domElement );
+
+				controls = new THREE.OrbitControls( camera, renderer.domElement );
+				controls.target.set( 0, 0.9, 0 );
+				controls.update();
 
 				window.addEventListener( 'resize', onWindowResize, false );
 

@@ -42,12 +42,16 @@
 
 		<script src="js/controls/TrackballControls.js"></script>
 
-		<script src="js/Detector.js"></script>
+		<script src="js/WebGL.js"></script>
 		<script src="js/libs/stats.min.js"></script>
 
 		<script>
 
-			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+			if ( WEBGL.isWebGLAvailable() === false ) {
+
+				document.body.appendChild( WEBGL.getWebGLErrorMessage() );
+
+			}
 
 			var camera, scene, renderer, controls;
 			var light1, light2, light3, light4, light5, light6;
@@ -67,29 +71,13 @@
 
 				camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 300 );
 				camera.position.set( 0, 15, 150 );
-				camera.lookAt( new THREE.Vector3() );
+				camera.lookAt( 0, 0, 0 );
 
 				// SCENE
 
 				scene = new THREE.Scene();
 				scene.background = new THREE.Color( 0x040306 );
 				scene.fog = new THREE.Fog( 0x040306, 10, 300 );
-
-				// CONTROLS
-
-				controls = new THREE.TrackballControls( camera );
-
-				controls.rotateSpeed = 1.0;
-				controls.zoomSpeed = 1.2;
-				controls.panSpeed = 0.8;
-
-				controls.noZoom = false;
-				controls.noPan = false;
-
-				controls.staticMoving = false;
-				controls.dynamicDampingFactor = 0.15;
-
-				controls.keys = [ 65, 83, 68 ];
 
 				// TEXTURES
 
@@ -181,6 +169,22 @@
 				renderer.gammaInput = true;
 				renderer.gammaOutput = true;
 
+				// CONTROLS
+
+				controls = new THREE.TrackballControls( camera, renderer.domElement );
+
+				controls.rotateSpeed = 1.0;
+				controls.zoomSpeed = 1.2;
+				controls.panSpeed = 0.8;
+
+				controls.noZoom = false;
+				controls.noPan = false;
+
+				controls.staticMoving = false;
+				controls.dynamicDampingFactor = 0.15;
+
+				controls.keys = [ 65, 83, 68 ];
+
 				// STATS
 
 				stats = new Stats();
@@ -217,7 +221,7 @@
 			function render() {
 
 				var time = Date.now() * 0.00025;
-				var z = 20, d = 150;
+				var d = 150;
 
 				light1.position.x = Math.sin( time * 0.7 ) * d;
 				light1.position.z = Math.cos( time * 0.3 ) * d;

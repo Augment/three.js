@@ -40,18 +40,20 @@
 
 		<script src="js/loaders/OBJLoader.js"></script>
 
-		<script src="js/Detector.js"></script>
+		<script src="js/WebGL.js"></script>
 		<script src="js/libs/stats.min.js"></script>
 
 		<script>
 
-			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+			if ( WEBGL.isWebGLAvailable() === false ) {
+
+				document.body.appendChild( WEBGL.getWebGLErrorMessage() );
+
+			}
 
 			var container, stats;
 
 			var camera, scene, renderer;
-
-			var mesh, geometry;
 
 			var pointLight;
 
@@ -66,21 +68,14 @@
 				camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 5000 );
 				camera.position.z = 2000;
 
-				//controls
-				var controls = new THREE.OrbitControls( camera );
-				controls.enableZoom = false;
-				controls.enablePan = false;
-				controls.minPolarAngle = Math.PI / 4;
-				controls.maxPolarAngle = Math.PI / 1.5;
-
 				//cubemap
-				var path = "textures/cube/SwedishRoyalCastle/";
+				var path = 'textures/cube/SwedishRoyalCastle/';
 				var format = '.jpg';
 				var urls = [
-						path + 'px' + format, path + 'nx' + format,
-						path + 'py' + format, path + 'ny' + format,
-						path + 'pz' + format, path + 'nz' + format
-					];
+					path + 'px' + format, path + 'nx' + format,
+					path + 'py' + format, path + 'ny' + format,
+					path + 'pz' + format, path + 'nz' + format
+				];
 
 				var reflectionCube = new THREE.CubeTextureLoader().load( urls );
 				reflectionCube.format = THREE.RGBFormat;
@@ -110,10 +105,10 @@
 				objLoader.setPath( 'models/obj/walt/' );
 				objLoader.load( 'WaltHead.obj', function ( object ) {
 
-					var head = object.children[0];
+					var head = object.children[ 0 ];
 
 					head.scale.multiplyScalar( 15 );
-					head.position.y = -500;
+					head.position.y = - 500;
 					head.material = cubeMaterial1;
 
 					var head2 = head.clone();
@@ -124,7 +119,7 @@
 					head3.position.x = 900;
 					head3.material = cubeMaterial3;
 
-					scene.add( head, head2, head3 )
+					scene.add( head, head2, head3 );
 
 				} );
 
@@ -133,6 +128,13 @@
 				renderer.setPixelRatio( window.devicePixelRatio );
 				renderer.setSize( window.innerWidth, window.innerHeight );
 				container.appendChild( renderer.domElement );
+
+				//controls
+				var controls = new THREE.OrbitControls( camera, renderer.domElement );
+				controls.enableZoom = false;
+				controls.enablePan = false;
+				controls.minPolarAngle = Math.PI / 4;
+				controls.maxPolarAngle = Math.PI / 1.5;
 
 				//stats
 				stats = new Stats();
@@ -155,6 +157,7 @@
 
 				requestAnimationFrame( animate );
 				render();
+
 			}
 
 			function render() {

@@ -39,10 +39,6 @@
 				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 10000 );
 				camera.position.set( 0, - 400, 600 );
 
-				var controls = new THREE.OrbitControls( camera );
-				controls.target.set( 0, 0, 0 );
-				controls.update();
-
 				scene = new THREE.Scene();
 				scene.background = new THREE.Color( 0xf0f0f0 );
 
@@ -50,8 +46,6 @@
 				loader.load( 'fonts/helvetiker_regular.typeface.json', function ( font ) {
 
 					var xMid, text;
-
-					var textShape = new THREE.BufferGeometry();
 
 					var color = 0x006699;
 
@@ -69,9 +63,9 @@
 
 					var message = "   Three.js\nSimple text.";
 
-					var shapes = font.generateShapes( message, 100, 2 );
+					var shapes = font.generateShapes( message, 100 );
 
-					var geometry = new THREE.ShapeGeometry( shapes );
+					var geometry = new THREE.ShapeBufferGeometry( shapes );
 
 					geometry.computeBoundingBox();
 
@@ -81,9 +75,7 @@
 
 					// make shape ( N.B. edge view not visible )
 
-					textShape.fromGeometry( geometry );
-
-					text = new THREE.Mesh( textShape, matLite );
+					text = new THREE.Mesh( geometry, matLite );
 					text.position.z = - 150;
 					scene.add( text );
 
@@ -118,7 +110,7 @@
 
 						var points = shape.getPoints();
 						var geometry = new THREE.BufferGeometry().setFromPoints( points );
-						
+
 						geometry.translate( xMid, 0, 0 );
 
 						var lineMesh = new THREE.Line( geometry, matDark );
@@ -134,6 +126,10 @@
 				renderer.setPixelRatio( window.devicePixelRatio );
 				renderer.setSize( window.innerWidth, window.innerHeight );
 				document.body.appendChild( renderer.domElement );
+
+				var controls = new THREE.OrbitControls( camera, renderer.domElement );
+				controls.target.set( 0, 0, 0 );
+				controls.update();
 
 				window.addEventListener( 'resize', onWindowResize, false );
 

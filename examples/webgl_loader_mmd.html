@@ -47,7 +47,6 @@
 
 		<script src="js/controls/OrbitControls.js"></script>
 
-		<script src="js/Detector.js"></script>
 		<script src="js/libs/stats.min.js"></script>
 		<script src="js/libs/dat.gui.min.js"></script>
 
@@ -58,15 +57,17 @@
 			var mesh, camera, scene, renderer, effect;
 			var helper, ikHelper, physicsHelper;
 
-			var mouseX = 0, mouseY = 0;
-
-			var windowHalfX = window.innerWidth / 2;
-			var windowHalfY = window.innerHeight / 2;
-
 			var clock = new THREE.Clock();
 
-			init();
-			animate();
+			Ammo().then( function( AmmoLib ) {
+
+				Ammo = AmmoLib;
+
+				init();
+				animate();
+
+			} );
+
 
 			function init() {
 
@@ -82,14 +83,14 @@
 				scene.background = new THREE.Color( 0xffffff );
 
 				var gridHelper = new THREE.PolarGridHelper( 30, 10 );
-				gridHelper.position.y = -10;
+				gridHelper.position.y = - 10;
 				scene.add( gridHelper );
 
 				var ambient = new THREE.AmbientLight( 0x666666 );
 				scene.add( ambient );
 
 				var directionalLight = new THREE.DirectionalLight( 0x887766 );
-				directionalLight.position.set( -1, 1, 1 ).normalize();
+				directionalLight.position.set( - 1, 1, 1 ).normalize();
 				scene.add( directionalLight );
 
 				//
@@ -108,15 +109,17 @@
 
 				// model
 
-				var onProgress = function ( xhr ) {
-					if ( xhr.lengthComputable ) {
-						var percentComplete = xhr.loaded / xhr.total * 100;
-						console.log( Math.round(percentComplete, 2) + '% downloaded' );
-					}
-				};
+				function onProgress( xhr ) {
 
-				var onError = function ( xhr ) {
-				};
+					if ( xhr.lengthComputable ) {
+
+						var percentComplete = xhr.loaded / xhr.total * 100;
+						console.log( Math.round( percentComplete, 2 ) + '% downloaded' );
+
+					}
+
+				}
+
 
 				var modelFile = 'models/mmd/miku/miku_v2.pmd';
 				var vmdFiles = [ 'models/mmd/vmds/wavefile_v2.vmd' ];
@@ -130,7 +133,7 @@
 				loader.loadWithAnimation( modelFile, vmdFiles, function ( mmd ) {
 
 					mesh = mmd.mesh;
-					mesh.position.y = -10;
+					mesh.position.y = - 10;
 					scene.add( mesh );
 
 					helper.add( mesh, {
@@ -148,7 +151,7 @@
 
 					initGui();
 
-				}, onProgress, onError );
+				}, onProgress, null );
 
 				var controls = new THREE.OrbitControls( camera, renderer.domElement );
 
@@ -157,7 +160,7 @@
 				var phongMaterials;
 				var originalMaterials;
 
-				function makePhongMaterials ( materials ) {
+				function makePhongMaterials( materials ) {
 
 					var array = [];
 
@@ -175,7 +178,7 @@
 
 				}
 
-				function initGui () {
+				function initGui() {
 
 					var api = {
 						'animation': true,
@@ -190,7 +193,9 @@
 					var gui = new dat.GUI();
 
 					gui.add( api, 'animation' ).onChange( function () {
+
 						helper.enable( 'animation', api[ 'animation' ] );
+
 					} );
 
 					gui.add( api, 'gradient mapping' ).onChange( function () {
@@ -211,23 +216,33 @@
 					} );
 
 					gui.add( api, 'ik' ).onChange( function () {
+
 						helper.enable( 'ik', api[ 'ik' ] );
+
 					} );
 
 					gui.add( api, 'outline' ).onChange( function () {
+
 						effect.enabled = api[ 'outline' ];
+
 					} );
 
 					gui.add( api, 'physics' ).onChange( function () {
+
 						helper.enable( 'physics', api[ 'physics' ] );
+
 					} );
 
 					gui.add( api, 'show IK bones' ).onChange( function () {
+
 						ikHelper.visible = api[ 'show IK bones' ];
+
 					} );
 
 					gui.add( api, 'show rigid bodies' ).onChange( function () {
+
 						if ( physicsHelper !== undefined ) physicsHelper.visible = api[ 'show rigid bodies' ];
+
 					} );
 
 				}
@@ -235,9 +250,6 @@
 			}
 
 			function onWindowResize() {
-
-				windowHalfX = window.innerWidth / 2;
-				windowHalfY = window.innerHeight / 2;
 
 				camera.aspect = window.innerWidth / window.innerHeight;
 				camera.updateProjectionMatrix();

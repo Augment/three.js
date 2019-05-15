@@ -45,7 +45,7 @@
 	</div>
 
 	<script src="../build/three.js"></script>
-	<script src="js/Detector.js"></script>
+	<script src="js/WebGL.js"></script>
 	<script src="js/libs/stats.min.js"></script>
 
 	<script src="js/controls/TrackballControls.js"></script>
@@ -94,7 +94,11 @@
 
 	<script>
 
-		if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+		if ( WEBGL.isWebGLAvailable() === false ) {
+
+			document.body.appendChild( WEBGL.getWebGLErrorMessage() );
+
+		}
 
 		var container, stats;
 
@@ -111,8 +115,6 @@
 
 			camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.01, 100 );
 			camera.position.z = 4;
-
-			controls = new THREE.TrackballControls( camera );
 
 			scene = new THREE.Scene();
 
@@ -200,6 +202,8 @@
 			renderer.setSize( window.innerWidth, window.innerHeight );
 			container.appendChild( renderer.domElement );
 
+			controls = new THREE.TrackballControls( camera, renderer.domElement );
+
 			if ( renderer.extensions.get( 'ANGLE_instanced_arrays' ) === null ) {
 
 				document.getElementById( 'notSupported' ).style.display = '';
@@ -218,7 +222,7 @@
 
 		}
 
-		function onWindowResize( event ) {
+		function onWindowResize() {
 
 			camera.aspect = window.innerWidth / window.innerHeight;
 			camera.updateProjectionMatrix();

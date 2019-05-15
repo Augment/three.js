@@ -11,7 +11,7 @@
 //
 //    Orbit - left mouse / touch: one-finger move
 //    Zoom - middle mouse, or mousewheel / touch: two-finger spread or squish
-//    Pan - right mouse, or arrow keys / touch: two-finger move
+//    Pan - right mouse, or left mouse + ctrl/meta/shiftKey, or arrow keys / touch: two-finger move
 
 THREE.OrbitControls = function ( object, domElement ) {
 
@@ -75,7 +75,7 @@ THREE.OrbitControls = function ( object, domElement ) {
 	this.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
 
 	// Mouse buttons
-	this.mouseButtons = { ORBIT: THREE.MOUSE.LEFT, ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
+	this.mouseButtons = { LEFT: THREE.MOUSE.LEFT, MIDDLE: THREE.MOUSE.MIDDLE, RIGHT: THREE.MOUSE.RIGHT };
 
 	// for reset
 	this.target0 = this.target.clone();
@@ -537,31 +537,43 @@ THREE.OrbitControls = function ( object, domElement ) {
 
 	function handleKeyDown( event ) {
 
-		//console.log( 'handleKeyDown' );
+		// console.log( 'handleKeyDown' );
+
+		var needsUpdate = false;
 
 		switch ( event.keyCode ) {
 
 			case scope.keys.UP:
 				pan( 0, scope.keyPanSpeed );
-				scope.update();
+				needsUpdate = true;
 				break;
 
 			case scope.keys.BOTTOM:
 				pan( 0, - scope.keyPanSpeed );
-				scope.update();
+				needsUpdate = true;
 				break;
 
 			case scope.keys.LEFT:
 				pan( scope.keyPanSpeed, 0 );
-				scope.update();
+				needsUpdate = true;
 				break;
 
 			case scope.keys.RIGHT:
 				pan( - scope.keyPanSpeed, 0 );
-				scope.update();
+				needsUpdate = true;
 				break;
 
 		}
+
+		if ( needsUpdate ) {
+
+			// prevent the browser from scrolling on cursor keys
+			event.preventDefault();
+
+			scope.update();
+
+		}
+
 
 	}
 
@@ -673,21 +685,40 @@ THREE.OrbitControls = function ( object, domElement ) {
 
 		if ( scope.enabled === false ) return;
 
+		// Prevent the browser from scrolling.
+
 		event.preventDefault();
+
+		// Manually set the focus since calling preventDefault above
+		// prevents the browser from setting it automatically.
+
+		scope.domElement.focus ? scope.domElement.focus() : window.focus();
 
 		switch ( event.button ) {
 
-			case scope.mouseButtons.ORBIT:
+			case scope.mouseButtons.LEFT:
 
-				if ( scope.enableRotate === false ) return;
+				if ( event.ctrlKey || event.metaKey || event.shiftKey ) {
 
-				handleMouseDownRotate( event );
+					if ( scope.enablePan === false ) return;
 
-				state = STATE.ROTATE;
+					handleMouseDownPan( event );
+
+					state = STATE.PAN;
+
+				} else {
+
+					if ( scope.enableRotate === false ) return;
+
+					handleMouseDownRotate( event );
+
+					state = STATE.ROTATE;
+
+				}
 
 				break;
 
-			case scope.mouseButtons.ZOOM:
+			case scope.mouseButtons.MIDDLE:
 
 				if ( scope.enableZoom === false ) return;
 
@@ -697,7 +728,7 @@ THREE.OrbitControls = function ( object, domElement ) {
 
 				break;
 
-			case scope.mouseButtons.PAN:
+			case scope.mouseButtons.RIGHT:
 
 				if ( scope.enablePan === false ) return;
 
