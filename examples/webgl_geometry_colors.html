@@ -4,53 +4,36 @@
 		<title>three.js webgl - geometry - vertex colors</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
 		<style>
 			body {
-				color: #808080;
-				font-family:Monospace;
-				font-size:13px;
-				text-align:center;
-
 				background-color: #fff;
-				margin: 0px;
-				overflow: hidden;
+				color: #444;
 			}
-
-			#info {
-				position: absolute;
-				top: 0px; width: 100%;
-				padding: 5px;
-			}
-
 			a {
-
-				color: #0080ff;
+				color: #08f;
 			}
-
 		</style>
 	</head>
 	<body>
 
 		<div id="container"></div>
-		<div id="info"><a href="http://threejs.org" target="_blank" rel="noopener">three.js</a> webgl - vertex colors</div>
+		<div id="info"><a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> webgl - vertex colors</div>
 
-		<script src="../build/three.js"></script>
+		<script type="module">
 
-		<script src="js/Detector.js"></script>
-		<script src="js/libs/stats.min.js"></script>
+			import * as THREE from '../build/three.module.js';
 
-		<script>
+			import Stats from './jsm/libs/stats.module.js';
 
-			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+			let container, stats;
 
-			var container, stats;
+			let camera, scene, renderer;
 
-			var camera, scene, renderer;
+			let mouseX = 0, mouseY = 0;
 
-			var mouseX = 0, mouseY = 0;
-
-			var windowHalfX = window.innerWidth / 2;
-			var windowHalfY = window.innerHeight / 2;
+			let windowHalfX = window.innerWidth / 2;
+			let windowHalfY = window.innerHeight / 2;
 
 			init();
 			animate();
@@ -65,31 +48,30 @@
 				scene = new THREE.Scene();
 				scene.background = new THREE.Color( 0xffffff );
 
-				var light = new THREE.DirectionalLight( 0xffffff );
+				const light = new THREE.DirectionalLight( 0xffffff );
 				light.position.set( 0, 0, 1 );
 				scene.add( light );
 
 				// shadow
 
-				var canvas = document.createElement( 'canvas' );
+				const canvas = document.createElement( 'canvas' );
 				canvas.width = 128;
 				canvas.height = 128;
 
-				var context = canvas.getContext( '2d' );
-				var gradient = context.createRadialGradient( canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width / 2 );
+				const context = canvas.getContext( '2d' );
+				const gradient = context.createRadialGradient( canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width / 2 );
 				gradient.addColorStop( 0.1, 'rgba(210,210,210,1)' );
 				gradient.addColorStop( 1, 'rgba(255,255,255,1)' );
 
 				context.fillStyle = gradient;
 				context.fillRect( 0, 0, canvas.width, canvas.height );
 
-				var shadowTexture = new THREE.Texture( canvas );
-				shadowTexture.needsUpdate = true;
+				const shadowTexture = new THREE.CanvasTexture( canvas );
 
-				var shadowMaterial = new THREE.MeshBasicMaterial( { map: shadowTexture } );
-				var shadowGeo = new THREE.PlaneBufferGeometry( 300, 300, 1, 1 );
+				const shadowMaterial = new THREE.MeshBasicMaterial( { map: shadowTexture } );
+				const shadowGeo = new THREE.PlaneBufferGeometry( 300, 300, 1, 1 );
 
-				var shadowMesh;
+				let shadowMesh;
 
 				shadowMesh = new THREE.Mesh( shadowGeo, shadowMaterial );
 				shadowMesh.position.y = - 250;
@@ -108,54 +90,48 @@
 				shadowMesh.rotation.x = - Math.PI / 2;
 				scene.add( shadowMesh );
 
-				var faceIndices = [ 'a', 'b', 'c' ];
+				const radius = 200;
 
-				var color, f, f2, f3, p, vertexIndex,
+				const geometry1 = new THREE.IcosahedronBufferGeometry( radius, 1 );
 
-					radius = 200,
+				const count = geometry1.attributes.position.count;
+				geometry1.setAttribute( 'color', new THREE.BufferAttribute( new Float32Array( count * 3 ), 3 ) );
 
-					geometry  = new THREE.IcosahedronGeometry( radius, 1 ),
-					geometry2 = new THREE.IcosahedronGeometry( radius, 1 ),
-					geometry3 = new THREE.IcosahedronGeometry( radius, 1 );
+				const geometry2 = geometry1.clone();
+				const geometry3 = geometry1.clone();
 
-				for ( var i = 0; i < geometry.faces.length; i ++ ) {
+				const color = new THREE.Color();
+				const positions1 = geometry1.attributes.position;
+				const positions2 = geometry2.attributes.position;
+				const positions3 = geometry3.attributes.position;
+				const colors1 = geometry1.attributes.color;
+				const colors2 = geometry2.attributes.color;
+				const colors3 = geometry3.attributes.color;
 
-					f  = geometry.faces[ i ];
-					f2 = geometry2.faces[ i ];
-					f3 = geometry3.faces[ i ];
+				for ( let i = 0; i < count; i ++ ) {
 
-					for ( var j = 0; j < 3; j ++ ) {
+					color.setHSL( ( positions1.getY( i ) / radius + 1 ) / 2, 1.0, 0.5 );
+					colors1.setXYZ( i, color.r, color.g, color.b );
 
-						vertexIndex = f[ faceIndices[ j ] ];
+					color.setHSL( 0, ( positions2.getY( i ) / radius + 1 ) / 2, 0.5 );
+					colors2.setXYZ( i, color.r, color.g, color.b );
 
-						p = geometry.vertices[ vertexIndex ];
-
-						color = new THREE.Color( 0xffffff );
-						color.setHSL( ( p.y / radius + 1 ) / 2, 1.0, 0.5 );
-
-						f.vertexColors[ j ] = color;
-
-						color = new THREE.Color( 0xffffff );
-						color.setHSL( 0.0, ( p.y / radius + 1 ) / 2, 0.5 );
-
-						f2.vertexColors[ j ] = color;
-
-						color = new THREE.Color( 0xffffff );
-						color.setHSL( 0.125 * vertexIndex / geometry.vertices.length, 1.0, 0.5 );
-
-						f3.vertexColors[ j ] = color;
-
-					}
+					color.setRGB( 1, 0.8 - ( positions3.getY( i ) / radius + 1 ) / 2, 0 );
+					colors3.setXYZ( i, color.r, color.g, color.b );
 
 				}
 
-				var mesh, wireframe;
+				const material = new THREE.MeshPhongMaterial( {
+					color: 0xffffff,
+					flatShading: true,
+					vertexColors: true,
+					shininess: 0
+				} );
 
-				var material = new THREE.MeshPhongMaterial( { color: 0xffffff, flatShading: true, vertexColors: THREE.VertexColors, shininess: 0 } );
-				var wireframeMaterial = new THREE.MeshBasicMaterial( { color: 0x000000, wireframe: true, transparent: true } );
+				const wireframeMaterial = new THREE.MeshBasicMaterial( { color: 0x000000, wireframe: true, transparent: true } );
 
-				mesh = new THREE.Mesh( geometry, material );
-				wireframe = new THREE.Mesh( geometry, wireframeMaterial );
+				let mesh = new THREE.Mesh( geometry1, material );
+				let wireframe = new THREE.Mesh( geometry1, wireframeMaterial );
 				mesh.add( wireframe );
 				mesh.position.x = - 400;
 				mesh.rotation.x = - 1.87;

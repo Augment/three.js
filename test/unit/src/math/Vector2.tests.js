@@ -1,7 +1,3 @@
-/**
- * @author bhouston / http://exocortex.com
- * @author TristanVALCKE / https://github.com/Itee
- */
 /* global QUnit */
 
 import { Vector2 } from '../../../../src/math/Vector2';
@@ -9,7 +5,8 @@ import { Matrix3 } from '../../../../src/math/Matrix3';
 import { BufferAttribute } from '../../../../src/core/BufferAttribute';
 import {
 	x,
-	y
+	y,
+	eps
 } from './Constants.tests';
 
 export default QUnit.module( 'Maths', () => {
@@ -306,6 +303,17 @@ export default QUnit.module( 'Maths', () => {
 
 		} );
 
+		QUnit.test( "cross", ( assert ) => {
+
+			var a = new Vector2( x, y );
+			var b = new Vector2( 2 * x, - y );
+			var answer = - 18;
+			var crossed = a.cross( b );
+
+			assert.ok( Math.abs( answer - crossed ) <= eps, "Check cross" );
+
+		} );
+
 		QUnit.todo( "lengthSq", ( assert ) => {
 
 			assert.ok( false, "everything's gonna be alright" );
@@ -337,7 +345,6 @@ export default QUnit.module( 'Maths', () => {
 
 			var a = new Vector2( x, 0 );
 			var b = new Vector2( 0, - y );
-			var c = new Vector2();
 
 			a.normalize();
 			assert.ok( a.length() == 1, "Passed!" );

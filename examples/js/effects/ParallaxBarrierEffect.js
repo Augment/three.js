@@ -1,9 +1,3 @@
-/**
- * @author mrdoob / http://mrdoob.com/
- * @author marklundin / http://mark-lundin.com/
- * @author alteredq / http://alteredqualia.com/
- */
-
 THREE.ParallaxBarrierEffect = function ( renderer ) {
 
 	var _camera = new THREE.OrthographicCamera( - 1, 1, 1, - 1, 0, 1 );
@@ -87,8 +81,15 @@ THREE.ParallaxBarrierEffect = function ( renderer ) {
 
 		_stereo.update( camera );
 
-		renderer.render( scene, _stereo.cameraL, _renderTargetL, true );
-		renderer.render( scene, _stereo.cameraR, _renderTargetR, true );
+		renderer.setRenderTarget( _renderTargetL );
+		renderer.clear();
+		renderer.render( scene, _stereo.cameraL );
+
+		renderer.setRenderTarget( _renderTargetR );
+		renderer.clear();
+		renderer.render( scene, _stereo.cameraR );
+
+		renderer.setRenderTarget( null );
 		renderer.render( _scene, _camera );
 
 	};

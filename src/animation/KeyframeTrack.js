@@ -1,9 +1,3 @@
-import { StringKeyframeTrack } from './tracks/StringKeyframeTrack.js';
-import { BooleanKeyframeTrack } from './tracks/BooleanKeyframeTrack.js';
-import { QuaternionKeyframeTrack } from './tracks/QuaternionKeyframeTrack.js';
-import { ColorKeyframeTrack } from './tracks/ColorKeyframeTrack.js';
-import { VectorKeyframeTrack } from './tracks/VectorKeyframeTrack.js';
-import { NumberKeyframeTrack } from './tracks/NumberKeyframeTrack.js';
 import {
 	InterpolateLinear,
 	InterpolateSmooth,
@@ -13,16 +7,6 @@ import { CubicInterpolant } from '../math/interpolants/CubicInterpolant.js';
 import { LinearInterpolant } from '../math/interpolants/LinearInterpolant.js';
 import { DiscreteInterpolant } from '../math/interpolants/DiscreteInterpolant.js';
 import { AnimationUtils } from './AnimationUtils.js';
-
-/**
- *
- * A timed sequence of keyframes for a specific property.
- *
- *
- * @author Ben Houston / http://clara.io/
- * @author David Sarno / http://lighthaus.us/
- * @author tschw
- */
 
 function KeyframeTrack( name, times, values, interpolation ) {
 
@@ -36,58 +20,20 @@ function KeyframeTrack( name, times, values, interpolation ) {
 
 	this.setInterpolation( interpolation || this.DefaultInterpolation );
 
-	this.validate();
-	this.optimize();
-
 }
 
-// Static methods:
+// Static methods
 
 Object.assign( KeyframeTrack, {
 
 	// Serialization (in static context, because of constructor invocation
 	// and automatic invocation of .toJSON):
 
-	parse: function ( json ) {
-
-		if ( json.type === undefined ) {
-
-			throw new Error( 'THREE.KeyframeTrack: track type undefined, can not parse' );
-
-		}
-
-		var trackType = KeyframeTrack._getTrackTypeForValueTypeName( json.type );
-
-		if ( json.times === undefined ) {
-
-			var times = [], values = [];
-
-			AnimationUtils.flattenJSON( json.keys, times, values, 'value' );
-
-			json.times = times;
-			json.values = values;
-
-		}
-
-		// derived classes can define a static parse method
-		if ( trackType.parse !== undefined ) {
-
-			return trackType.parse( json );
-
-		} else {
-
-			// by default, we assume a constructor compatible with the base
-			return new trackType( json.name, json.times, json.values, json.interpolation );
-
-		}
-
-	},
-
 	toJSON: function ( track ) {
 
-		var trackType = track.constructor;
+		const trackType = track.constructor;
 
-		var json;
+		let json;
 
 		// derived classes can define a static toJSON method
 		if ( trackType.toJSON !== undefined ) {
@@ -105,7 +51,7 @@ Object.assign( KeyframeTrack, {
 
 			};
 
-			var interpolation = track.getInterpolation();
+			const interpolation = track.getInterpolation();
 
 			if ( interpolation !== track.DefaultInterpolation ) {
 
@@ -118,48 +64,6 @@ Object.assign( KeyframeTrack, {
 		json.type = track.ValueTypeName; // mandatory
 
 		return json;
-
-	},
-
-	_getTrackTypeForValueTypeName: function ( typeName ) {
-
-		switch ( typeName.toLowerCase() ) {
-
-			case 'scalar':
-			case 'double':
-			case 'float':
-			case 'number':
-			case 'integer':
-
-				return NumberKeyframeTrack;
-
-			case 'vector':
-			case 'vector2':
-			case 'vector3':
-			case 'vector4':
-
-				return VectorKeyframeTrack;
-
-			case 'color':
-
-				return ColorKeyframeTrack;
-
-			case 'quaternion':
-
-				return QuaternionKeyframeTrack;
-
-			case 'bool':
-			case 'boolean':
-
-				return BooleanKeyframeTrack;
-
-			case 'string':
-
-				return StringKeyframeTrack;
-
-		}
-
-		throw new Error( 'THREE.KeyframeTrack: Unsupported typeName: ' + typeName );
 
 	}
 
@@ -195,7 +99,7 @@ Object.assign( KeyframeTrack.prototype, {
 
 	setInterpolation: function ( interpolation ) {
 
-		var factoryMethod;
+		let factoryMethod;
 
 		switch ( interpolation ) {
 
@@ -221,7 +125,7 @@ Object.assign( KeyframeTrack.prototype, {
 
 		if ( factoryMethod === undefined ) {
 
-			var message = "unsupported interpolation for " +
+			const message = "unsupported interpolation for " +
 				this.ValueTypeName + " keyframe track named " + this.name;
 
 			if ( this.createInterpolant === undefined ) {
@@ -240,11 +144,13 @@ Object.assign( KeyframeTrack.prototype, {
 			}
 
 			console.warn( 'THREE.KeyframeTrack:', message );
-			return;
+			return this;
 
 		}
 
 		this.createInterpolant = factoryMethod;
+
+		return this;
 
 	},
 
@@ -279,9 +185,9 @@ Object.assign( KeyframeTrack.prototype, {
 
 		if ( timeOffset !== 0.0 ) {
 
-			var times = this.times;
+			const times = this.times;
 
-			for ( var i = 0, n = times.length; i !== n; ++ i ) {
+			for ( let i = 0, n = times.length; i !== n; ++ i ) {
 
 				times[ i ] += timeOffset;
 
@@ -298,9 +204,9 @@ Object.assign( KeyframeTrack.prototype, {
 
 		if ( timeScale !== 1.0 ) {
 
-			var times = this.times;
+			const times = this.times;
 
-			for ( var i = 0, n = times.length; i !== n; ++ i ) {
+			for ( let i = 0, n = times.length; i !== n; ++ i ) {
 
 				times[ i ] *= timeScale;
 
@@ -316,9 +222,10 @@ Object.assign( KeyframeTrack.prototype, {
 	// IMPORTANT: We do not shift around keys to the start of the track time, because for interpolated keys this will change their values
 	trim: function ( startTime, endTime ) {
 
-		var times = this.times,
-			nKeys = times.length,
-			from = 0,
+		const times = this.times,
+			nKeys = times.length;
+
+		let from = 0,
 			to = nKeys - 1;
 
 		while ( from !== nKeys && times[ from ] < startTime ) {
@@ -338,9 +245,14 @@ Object.assign( KeyframeTrack.prototype, {
 		if ( from !== 0 || to !== nKeys ) {
 
 			// empty tracks are forbidden, so keep at least one keyframe
-			if ( from >= to ) to = Math.max( to, 1 ), from = to - 1;
+			if ( from >= to ) {
 
-			var stride = this.getValueSize();
+				to = Math.max( to, 1 );
+				from = to - 1;
+
+			}
+
+			const stride = this.getValueSize();
 			this.times = AnimationUtils.arraySlice( times, from, to );
 			this.values = AnimationUtils.arraySlice( this.values, from * stride, to * stride );
 
@@ -353,9 +265,9 @@ Object.assign( KeyframeTrack.prototype, {
 	// ensure we do not get a GarbageInGarbageOut situation, make sure tracks are at least minimally viable
 	validate: function () {
 
-		var valid = true;
+		let valid = true;
 
-		var valueSize = this.getValueSize();
+		const valueSize = this.getValueSize();
 		if ( valueSize - Math.floor( valueSize ) !== 0 ) {
 
 			console.error( 'THREE.KeyframeTrack: Invalid value size in track.', this );
@@ -363,7 +275,7 @@ Object.assign( KeyframeTrack.prototype, {
 
 		}
 
-		var times = this.times,
+		const times = this.times,
 			values = this.values,
 
 			nKeys = times.length;
@@ -375,11 +287,11 @@ Object.assign( KeyframeTrack.prototype, {
 
 		}
 
-		var prevTime = null;
+		let prevTime = null;
 
-		for ( var i = 0; i !== nKeys; i ++ ) {
+		for ( let i = 0; i !== nKeys; i ++ ) {
 
-			var currTime = times[ i ];
+			const currTime = times[ i ];
 
 			if ( typeof currTime === 'number' && isNaN( currTime ) ) {
 
@@ -405,9 +317,9 @@ Object.assign( KeyframeTrack.prototype, {
 
 			if ( AnimationUtils.isTypedArray( values ) ) {
 
-				for ( var i = 0, n = values.length; i !== n; ++ i ) {
+				for ( let i = 0, n = values.length; i !== n; ++ i ) {
 
-					var value = values[ i ];
+					const value = values[ i ];
 
 					if ( isNaN( value ) ) {
 
@@ -431,21 +343,23 @@ Object.assign( KeyframeTrack.prototype, {
 	// (0,0,0,0,1,1,1,0,0,0,0,0,0,0) --> (0,0,1,1,0,0)
 	optimize: function () {
 
-		var times = this.times,
-			values = this.values,
+		// times or values may be shared with other tracks, so overwriting is unsafe
+		const times = AnimationUtils.arraySlice( this.times ),
+			values = AnimationUtils.arraySlice( this.values ),
 			stride = this.getValueSize(),
 
 			smoothInterpolation = this.getInterpolation() === InterpolateSmooth,
 
-			writeIndex = 1,
 			lastIndex = times.length - 1;
 
-		for ( var i = 1; i < lastIndex; ++ i ) {
+		let writeIndex = 1;
 
-			var keep = false;
+		for ( let i = 1; i < lastIndex; ++ i ) {
 
-			var time = times[ i ];
-			var timeNext = times[ i + 1 ];
+			let keep = false;
+
+			const time = times[ i ];
+			const timeNext = times[ i + 1 ];
 
 			// remove adjacent keyframes scheduled at the same time
 
@@ -455,13 +369,13 @@ Object.assign( KeyframeTrack.prototype, {
 
 					// remove unnecessary keyframes same as their neighbors
 
-					var offset = i * stride,
+					const offset = i * stride,
 						offsetP = offset - stride,
 						offsetN = offset + stride;
 
-					for ( var j = 0; j !== stride; ++ j ) {
+					for ( let j = 0; j !== stride; ++ j ) {
 
-						var value = values[ offset + j ];
+						const value = values[ offset + j ];
 
 						if ( value !== values[ offsetP + j ] ||
 							value !== values[ offsetN + j ] ) {
@@ -489,10 +403,10 @@ Object.assign( KeyframeTrack.prototype, {
 
 					times[ writeIndex ] = times[ i ];
 
-					var readOffset = i * stride,
+					const readOffset = i * stride,
 						writeOffset = writeIndex * stride;
 
-					for ( var j = 0; j !== stride; ++ j ) {
+					for ( let j = 0; j !== stride; ++ j ) {
 
 						values[ writeOffset + j ] = values[ readOffset + j ];
 
@@ -512,7 +426,7 @@ Object.assign( KeyframeTrack.prototype, {
 
 			times[ writeIndex ] = times[ lastIndex ];
 
-			for ( var readOffset = lastIndex * stride, writeOffset = writeIndex * stride, j = 0; j !== stride; ++ j ) {
+			for ( let readOffset = lastIndex * stride, writeOffset = writeIndex * stride, j = 0; j !== stride; ++ j ) {
 
 				values[ writeOffset + j ] = values[ readOffset + j ];
 
@@ -527,9 +441,29 @@ Object.assign( KeyframeTrack.prototype, {
 			this.times = AnimationUtils.arraySlice( times, 0, writeIndex );
 			this.values = AnimationUtils.arraySlice( values, 0, writeIndex * stride );
 
+		} else {
+
+			this.times = times;
+			this.values = values;
+
 		}
 
 		return this;
+
+	},
+
+	clone: function () {
+
+		const times = AnimationUtils.arraySlice( this.times, 0 );
+		const values = AnimationUtils.arraySlice( this.values, 0 );
+
+		const TypedKeyframeTrack = this.constructor;
+		const track = new TypedKeyframeTrack( this.name, times, values );
+
+		// Interpolant argument to constructor is not saved, so copy the factory method directly.
+		track.createInterpolant = this.createInterpolant;
+
+		return track;
 
 	}
 

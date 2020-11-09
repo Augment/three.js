@@ -1,22 +1,16 @@
-/**
- * @author Mugen87 / https://github.com/Mugen87
- */
-
 import { WebGLLights } from './WebGLLights.js';
 
-function WebGLRenderState() {
+function WebGLRenderState( extensions, capabilities ) {
 
-	var lights = new WebGLLights();
+	const lights = new WebGLLights( extensions, capabilities );
 
-	var lightsArray = [];
-	var shadowsArray = [];
-	var spritesArray = [];
+	const lightsArray = [];
+	const shadowsArray = [];
 
 	function init() {
 
 		lightsArray.length = 0;
 		shadowsArray.length = 0;
-		spritesArray.length = 0;
 
 	}
 
@@ -32,22 +26,15 @@ function WebGLRenderState() {
 
 	}
 
-	function pushSprite( shadowLight ) {
-
-		spritesArray.push( shadowLight );
-
-	}
-
 	function setupLights( camera ) {
 
 		lights.setup( lightsArray, shadowsArray, camera );
 
 	}
 
-	var state = {
+	const state = {
 		lightsArray: lightsArray,
 		shadowsArray: shadowsArray,
-		spritesArray: spritesArray,
 
 		lights: lights
 	};
@@ -58,26 +45,37 @@ function WebGLRenderState() {
 		setupLights: setupLights,
 
 		pushLight: pushLight,
-		pushShadow: pushShadow,
-		pushSprite: pushSprite
+		pushShadow: pushShadow
 	};
 
 }
 
-function WebGLRenderStates() {
+function WebGLRenderStates( extensions, capabilities ) {
 
-	var renderStates = {};
+	let renderStates = new WeakMap();
 
 	function get( scene, camera ) {
 
-		var hash = scene.id + ',' + camera.id;
+		let renderState;
 
-		var renderState = renderStates[ hash ];
+		if ( renderStates.has( scene ) === false ) {
 
-		if ( renderState === undefined ) {
+			renderState = new WebGLRenderState( extensions, capabilities );
+			renderStates.set( scene, new WeakMap() );
+			renderStates.get( scene ).set( camera, renderState );
 
-			renderState = new WebGLRenderState();
-			renderStates[ hash ] = renderState;
+		} else {
+
+			if ( renderStates.get( scene ).has( camera ) === false ) {
+
+				renderState = new WebGLRenderState( extensions, capabilities );
+				renderStates.get( scene ).set( camera, renderState );
+
+			} else {
+
+				renderState = renderStates.get( scene ).get( camera );
+
+			}
 
 		}
 
@@ -87,7 +85,7 @@ function WebGLRenderStates() {
 
 	function dispose() {
 
-		renderStates = {};
+		renderStates = new WeakMap();
 
 	}
 

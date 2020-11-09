@@ -1,12 +1,9 @@
+import { MultiplyOperation, TangentSpaceNormalMap } from '../constants.js';
 import { Material } from './Material.js';
-import { MultiplyOperation } from '../constants.js';
 import { Vector2 } from '../math/Vector2.js';
 import { Color } from '../math/Color.js';
 
 /**
- * @author mrdoob / http://mrdoob.com/
- * @author alteredq / http://alteredqualia.com/
- *
  * parameters = {
  *  color: <hex>,
  *  specular: <hex>,
@@ -29,6 +26,7 @@ import { Color } from '../math/Color.js';
  *  bumpScale: <float>,
  *
  *  normalMap: new THREE.Texture( <Image> ),
+ *  normalMapType: THREE.TangentSpaceNormalMap,
  *  normalScale: <Vector2>,
  *
  *  displacementMap: new THREE.Texture( <Image> ),
@@ -40,7 +38,7 @@ import { Color } from '../math/Color.js';
  *  alphaMap: new THREE.Texture( <Image> ),
  *
  *  envMap: new THREE.CubeTexture( [posx, negx, posy, negy, posz, negz] ),
- *  combine: THREE.Multiply,
+ *  combine: THREE.MultiplyOperation,
  *  reflectivity: <float>,
  *  refractionRatio: <float>,
  *
@@ -79,6 +77,7 @@ function MeshPhongMaterial( parameters ) {
 	this.bumpScale = 1;
 
 	this.normalMap = null;
+	this.normalMapType = TangentSpaceNormalMap;
 	this.normalScale = new Vector2( 1, 1 );
 
 	this.displacementMap = null;
@@ -136,6 +135,7 @@ MeshPhongMaterial.prototype.copy = function ( source ) {
 	this.bumpScale = source.bumpScale;
 
 	this.normalMap = source.normalMap;
+	this.normalMapType = source.normalMapType;
 	this.normalScale.copy( source.normalScale );
 
 	this.displacementMap = source.displacementMap;

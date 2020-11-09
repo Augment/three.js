@@ -1,6 +1,3 @@
-/**
- * @author TristanVALCKE / https://github.com/Itee
- */
 /* global QUnit */
 
 import { AnimationClip } from '../../../../src/animation/AnimationClip';
@@ -67,6 +64,12 @@ export default QUnit.module( 'Animation', () => {
 		} );
 
 		QUnit.todo( "optimize", ( assert ) => {
+
+			assert.ok( false, "everything's gonna be alright" );
+
+		} );
+
+		QUnit.todo( "validate", ( assert ) => {
 
 			assert.ok( false, "everything's gonna be alright" );
 

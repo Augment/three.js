@@ -1,23 +1,27 @@
-/**
- * @author mrdoob / http://mrdoob.com/
- * @author alteredq / http://alteredqualia.com/
- * @author szimek / https://github.com/szimek/
- */
-
 import { EventDispatcher } from '../core/EventDispatcher.js';
-import { UVMapping } from '../constants.js';
-import { MirroredRepeatWrapping, ClampToEdgeWrapping, RepeatWrapping, LinearEncoding, UnsignedByteType, RGBAFormat, LinearMipMapLinearFilter, LinearFilter } from '../constants.js';
-import { _Math } from '../math/Math.js';
+import {
+	MirroredRepeatWrapping,
+	ClampToEdgeWrapping,
+	RepeatWrapping,
+	LinearEncoding,
+	UnsignedByteType,
+	RGBAFormat,
+	LinearMipmapLinearFilter,
+	LinearFilter,
+	UVMapping
+} from '../constants.js';
+import { MathUtils } from '../math/MathUtils.js';
 import { Vector2 } from '../math/Vector2.js';
 import { Matrix3 } from '../math/Matrix3.js';
+import { ImageUtils } from '../extras/ImageUtils.js';
 
-var textureId = 0;
+let textureId = 0;
 
 function Texture( image, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy, encoding ) {
 
 	Object.defineProperty( this, 'id', { value: textureId ++ } );
 
-	this.uuid = _Math.generateUUID();
+	this.uuid = MathUtils.generateUUID();
 
 	this.name = '';
 
@@ -30,11 +34,12 @@ function Texture( image, mapping, wrapS, wrapT, magFilter, minFilter, format, ty
 	this.wrapT = wrapT !== undefined ? wrapT : ClampToEdgeWrapping;
 
 	this.magFilter = magFilter !== undefined ? magFilter : LinearFilter;
-	this.minFilter = minFilter !== undefined ? minFilter : LinearMipMapLinearFilter;
+	this.minFilter = minFilter !== undefined ? minFilter : LinearMipmapLinearFilter;
 
 	this.anisotropy = anisotropy !== undefined ? anisotropy : 1;
 
 	this.format = format !== undefined ? format : RGBAFormat;
+	this.internalFormat = null;
 	this.type = type !== undefined ? type : UnsignedByteType;
 
 	this.offset = new Vector2( 0, 0 );
@@ -53,7 +58,7 @@ function Texture( image, mapping, wrapS, wrapT, magFilter, minFilter, format, ty
 	// Values of encoding !== THREE.LinearEncoding only supported on map, envMap and emissiveMap.
 	//
 	// Also changing the encoding after already used by a Material will not automatically make the Material
-	// update.  You need to explicitly call Material.needsUpdate to trigger it to recompile.
+	// update. You need to explicitly call Material.needsUpdate to trigger it to recompile.
 	this.encoding = encoding !== undefined ? encoding : LinearEncoding;
 
 	this.version = 0;
@@ -100,6 +105,7 @@ Texture.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 		this.anisotropy = source.anisotropy;
 
 		this.format = source.format;
+		this.internalFormat = source.internalFormat;
 		this.type = source.type;
 
 		this.offset.copy( source.offset );
@@ -122,7 +128,7 @@ Texture.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 
 	toJSON: function ( meta ) {
 
-		var isRootObject = ( meta === undefined || typeof meta === 'string' );
+		const isRootObject = ( meta === undefined || typeof meta === 'string' );
 
 		if ( ! isRootObject && meta.textures[ this.uuid ] !== undefined ) {
 
@@ -130,47 +136,7 @@ Texture.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 
 		}
 
-		function getDataURL( image ) {
-
-			var canvas;
-
-			if ( image instanceof HTMLCanvasElement ) {
-
-				canvas = image;
-
-			} else {
-
-				canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'canvas' );
-				canvas.width = image.width;
-				canvas.height = image.height;
-
-				var context = canvas.getContext( '2d' );
-
-				if ( image instanceof ImageData ) {
-
-					context.putImageData( image, 0, 0 );
-
-				} else {
-
-					context.drawImage( image, 0, 0, image.width, image.height );
-
-				}
-
-			}
-
-			if ( canvas.width > 2048 || canvas.height > 2048 ) {
-
-				return canvas.toDataURL( 'image/jpeg', 0.6 );
-
-			} else {
-
-				return canvas.toDataURL( 'image/png' );
-
-			}
-
-		}
-
-		var output = {
+		const output = {
 
 			metadata: {
 				version: 4.5,
@@ -191,11 +157,17 @@ Texture.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 			wrap: [ this.wrapS, this.wrapT ],
 
 			format: this.format,
+			type: this.type,
+			encoding: this.encoding,
+
 			minFilter: this.minFilter,
 			magFilter: this.magFilter,
 			anisotropy: this.anisotropy,
 
-			flipY: this.flipY
+			flipY: this.flipY,
+
+			premultiplyAlpha: this.premultiplyAlpha,
+			unpackAlignment: this.unpackAlignment
 
 		};
 
@@ -203,19 +175,41 @@ Texture.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 
 			// TODO: Move to THREE.Image
 
-			var image = this.image;
+			const image = this.image;
 
 			if ( image.uuid === undefined ) {
 
-				image.uuid = _Math.generateUUID(); // UGH
+				image.uuid = MathUtils.generateUUID(); // UGH
 
 			}
 
 			if ( ! isRootObject && meta.images[ image.uuid ] === undefined ) {
 
+				let url;
+
+				if ( Array.isArray( image ) ) {
+
+					// process array of images e.g. CubeTexture
+
+					url = [];
+
+					for ( let i = 0, l = image.length; i < l; i ++ ) {
+
+						url.push( ImageUtils.getDataURL( image[ i ] ) );
+
+					}
+
+				} else {
+
+					// process single image
+
+					url = ImageUtils.getDataURL( image );
+
+				}
+
 				meta.images[ image.uuid ] = {
 					uuid: image.uuid,
-					url: getDataURL( image )
+					url: url
 				};
 
 			}
@@ -242,7 +236,7 @@ Texture.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 
 	transformUv: function ( uv ) {
 
-		if ( this.mapping !== UVMapping ) return;
+		if ( this.mapping !== UVMapping ) return uv;
 
 		uv.applyMatrix3( this.matrix );
 
@@ -271,6 +265,7 @@ Texture.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 						uv.x = uv.x - Math.floor( uv.x );
 
 					}
+
 					break;
 
 			}
@@ -302,6 +297,7 @@ Texture.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 						uv.y = uv.y - Math.floor( uv.y );
 
 					}
+
 					break;
 
 			}
@@ -313,6 +309,8 @@ Texture.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 			uv.y = 1 - uv.y;
 
 		}
+
+		return uv;
 
 	}
 

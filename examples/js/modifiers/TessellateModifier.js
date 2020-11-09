@@ -1,8 +1,6 @@
 /**
  * Break faces with edges longer than maxEdgeLength
  * - not recursive
- *
- * @author alteredq / http://alteredqualia.com/
  */
 
 THREE.TessellateModifier = function ( maxEdgeLength ) {
@@ -186,7 +184,7 @@ THREE.TessellateModifier.prototype.modify = function ( geometry ) {
 							var uvsTriA = [ uvA.clone(), uvM.clone(), uvC.clone() ];
 							var uvsTriB = [ uvM.clone(), uvB.clone(), uvC.clone() ];
 
-						// BC
+							// BC
 
 						} else if ( edge === 1 ) {
 
@@ -196,7 +194,7 @@ THREE.TessellateModifier.prototype.modify = function ( geometry ) {
 							var uvsTriA = [ uvA.clone(), uvB.clone(), uvM.clone() ];
 							var uvsTriB = [ uvM.clone(), uvC.clone(), uvA.clone() ];
 
-						// AC
+							// AC
 
 						} else {
 
