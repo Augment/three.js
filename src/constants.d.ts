@@ -24,6 +24,10 @@ export const CullFaceBack: CullFace;
 export const CullFaceFront: CullFace;
 export const CullFaceFrontBack: CullFace;
 
+export enum FrontFaceDirection {}
+export const FrontFaceDirectionCW: FrontFaceDirection;
+export const FrontFaceDirectionCCW: FrontFaceDirection;
+
 // Shadowing Type
 export enum ShadowMapType {}
 export const BasicShadowMap: ShadowMapType;
@@ -369,3 +373,14 @@ export const StreamCopyUsage: Usage;
 export enum GLSLVersion {}
 export const GLSL1: GLSLVersion;
 export const GLSL3: GLSLVersion;
+
+export enum AugmentObjectRenderingMode {}
+export var AugmentObjectRenderingModeOpaque: AugmentObjectRenderingMode;
+export var AugmentObjectRenderingModeTransparent: AugmentObjectRenderingMode;
+export enum AugmentMaterialOpacityMode {}
+export var AugmentMaterialOpacityModeStandard: AugmentMaterialOpacityMode;
+export var AugmentMaterialOpacityModeMixed: AugmentMaterialOpacityMode;
+export enum AugmentMaterialRenderingMode {}
+export var AugmentMaterialRenderingModeStandard: AugmentMaterialRenderingMode;
+export var AugmentMaterialRenderingModeMixedOpaque: AugmentMaterialRenderingMode;
+export var AugmentMaterialRenderingModeMixedTransparent: AugmentMaterialRenderingMode;

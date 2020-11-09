@@ -33,6 +33,8 @@ export interface MaterialParameters {
 	fog?: boolean;
 	name?: string;
 	opacity?: number;
+	opacityMode?: AugmentMaterialOpacityMode;
+	opacityEffectiveMode?: AugmentMaterialRenderingMode;
 	polygonOffset?: boolean;
 	polygonOffsetFactor?: number;
 	polygonOffsetUnits?: number;
