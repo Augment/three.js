@@ -245,7 +245,7 @@
 	var TangentSpaceNormalMap = 0;
 	var ObjectSpaceNormalMap = 1;
 	var ZeroStencilOp = 0;
-	var KeepStencilOp$1 = 7680;
+	var KeepStencilOp = 7680;
 	var ReplaceStencilOp = 7681;
 	var IncrementStencilOp = 7682;
 	var DecrementStencilOp = 7683;
@@ -259,7 +259,7 @@
 	var GreaterStencilFunc = 516;
 	var NotEqualStencilFunc = 517;
 	var GreaterEqualStencilFunc = 518;
-	var AlwaysStencilFunc$1 = 519;
+	var AlwaysStencilFunc = 519;
 	var StaticDrawUsage = 35044;
 	var DynamicDrawUsage = 35048;
 	var StreamDrawUsage = 35040;
@@ -37995,7 +37995,7 @@
 	exports.AdditiveBlending = AdditiveBlending;
 	exports.AlphaFormat = AlphaFormat;
 	exports.AlwaysDepth = AlwaysDepth;
-	exports.AlwaysStencilFunc = AlwaysStencilFunc$1;
+	exports.AlwaysStencilFunc = AlwaysStencilFunc;
 	exports.AmbientLight = AmbientLight;
 	exports.AmbientLightProbe = AmbientLightProbe;
 	exports.AnimatedGifTexture = AnimatedGifTexture;
@@ -38178,7 +38178,7 @@
 	exports.InterpolateSmooth = InterpolateSmooth;
 	exports.InvertStencilOp = InvertStencilOp;
 	exports.JSONLoader = JSONLoader;
-	exports.KeepStencilOp = KeepStencilOp$1;
+	exports.KeepStencilOp = KeepStencilOp;
 	exports.KeyframeTrack = KeyframeTrack;
 	exports.LOD = LOD;
 	exports.LatheBufferGeometry = LatheBufferGeometry;
