@@ -57,6 +57,7 @@ Object.assign( DataParser.prototype, {
 				items.push( item );
 
 			}
+
 			obj[ name ] = items;
 
 		} else if ( part.parts ) {
@@ -116,6 +117,7 @@ Object.assign( DataParser.prototype, {
 			}
 
 		}
+
 		return out;
 
 	}

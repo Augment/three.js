@@ -35,6 +35,7 @@ Object.assign( ByteStream.prototype, {
 			bytes[ i ] = this.readByte();
 
 		}
+
 		return bytes;
 
 	},
@@ -48,6 +49,7 @@ Object.assign( ByteStream.prototype, {
 			bytes[ i ] = this.data[ this.pos + i ];
 
 		}
+
 		return bytes;
 
 	},
@@ -61,6 +63,7 @@ Object.assign( ByteStream.prototype, {
 			str += String.fromCharCode( this.readByte() );
 
 		}
+
 		return str;
 
 	},
@@ -75,6 +78,7 @@ Object.assign( ByteStream.prototype, {
 			arr.push( !! ( bite & ( 1 << i ) ) );
 
 		}
+
 		return arr;
 
 	},
@@ -87,7 +91,7 @@ Object.assign( ByteStream.prototype, {
 
 			return ( a[ 1 ] << 8 ) + a[ 0 ];
 
-		} else{
+		} else {
 
 			return ( a[ 0 ] << 8 ) + a[ 1 ];
 

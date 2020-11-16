@@ -89,7 +89,7 @@ Object.assign( AnimatedGifTexture.prototype, {
 
 		var width = frames[ 0 ].dims.width, height = frames[ 0 ].dims.height, depth = 4, count = frames.length;
 		var frameLineWidth = width * depth, patchLineWidth = 0, newPatchLineWidth = 0;
-		var previousCompleteFrame, frame, newPatchData, dims, area, frameArea, mix;
+		var previousCompleteFrame, frame, newPatchData, dims, area, frameArea;
 		var processedPatches = [];
 
 		var patch = { data: [], height: 0, left: 0, parial: false, top: 0, width: 0 };
@@ -125,6 +125,7 @@ Object.assign( AnimatedGifTexture.prototype, {
 						newPatchLineWidth = frameLineWidth;
 
 					}
+
 					frameArea = previousCompleteFrame.subarray( dims.top * frameLineWidth + dims.left * depth );
 
 					for ( var fr = 0, pr = 0; pr < dims.height * newPatchLineWidth; fr += frameLineWidth, pr += newPatchLineWidth ) {
@@ -168,6 +169,7 @@ Object.assign( AnimatedGifTexture.prototype, {
 						frameArea = frameArea.subarray( dims.top * width + dims.left );
 
 					}
+
 					frameLineWidth = width;
 					patchLineWidth = dims.width;
 
@@ -209,7 +211,7 @@ Object.assign( AnimatedGifTexture.prototype, {
 
 	prepareFullFrames: function ( frames ) {
 
-		var width = frames[ 0 ].dims.width, height = frames[ 0 ].dims.height, depth = 4, count = frames.length;
+		var width = frames[ 0 ].dims.width, height = frames[ 0 ].dims.height, count = frames.length;
 		var originalpatchLineWidth = 0;
 		var previousCompleteFrame, frame, dims, area, originalPatchArea;
 		var processedFrames = [];

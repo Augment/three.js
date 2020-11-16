@@ -10,7 +10,9 @@ import {
 	DepthModes,
 	Side,
 	StencilFunc,
-	StencilOp
+	StencilOp,
+	AugmentMaterialOpacityMode,
+	AugmentMaterialRenderingMode
 } from '../constants';
 
 export interface MaterialParameters {

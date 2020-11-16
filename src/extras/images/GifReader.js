@@ -117,7 +117,7 @@ Object.assign( GifReader.prototype, {
 			var nullCode = - 1;
 
 			var npix = pixelCount;
-			var available, clear, code_mask, code_size, end_of_information, in_code, old_code, bits, code, i, datum, data_size, first, top, bi, pi, count;
+			var available, clear, code_mask, code_size, end_of_information, in_code, old_code, bits, code, i, datum, data_size, first, top, bi, pi;
 
 			var dstPixels = new Array( pixelCount );
 			var prefix = new Array( MAX_STACK_SIZE );
@@ -140,7 +140,7 @@ Object.assign( GifReader.prototype, {
 			}
 
 			// Decode GIF pixel stream.
-			datum = bits = count = first = top = pi = bi = 0;
+			datum = bits = first = top = pi = bi = 0;
 			for ( i = 0; i < npix; ) {
 
 				if ( top === 0 ) {
@@ -155,16 +155,19 @@ Object.assign( GifReader.prototype, {
 						continue;
 
 					}
+
 					// Get the next code.
 					code = datum & code_mask;
 					datum >>= code_size;
 					bits -= code_size;
+
 					// Interpret the code
 					if ( ( code > available ) || ( code == end_of_information ) ) {
 
 						break;
 
 					}
+
 					if ( code == clear ) {
 
 						// Reset decoder.
@@ -175,6 +178,7 @@ Object.assign( GifReader.prototype, {
 						continue;
 
 					}
+
 					if ( old_code == nullCode ) {
 
 						pixelStack[ top ++ ] = suffix[ code ];
@@ -183,13 +187,16 @@ Object.assign( GifReader.prototype, {
 						continue;
 
 					}
+
 					in_code = code;
+
 					if ( code == available ) {
 
 						pixelStack[ top ++ ] = first;
 						code = old_code;
 
 					}
+
 					while ( code > clear ) {
 
 						pixelStack[ top ++ ] = suffix[ code ];
@@ -216,9 +223,11 @@ Object.assign( GifReader.prototype, {
 						}
 
 					}
+
 					old_code = in_code;
 
 				}
+
 				// Pop a pixel off the pixel stack.
 				top --;
 				dstPixels[ pi ++ ] = pixelStack[ top ];
@@ -306,6 +315,7 @@ Object.assign( GifReader.prototype, {
 			}
 
 		}
+
 		return frames;
 
 	}
