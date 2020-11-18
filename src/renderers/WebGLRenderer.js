@@ -6,11 +6,10 @@ import {
 	BackSide,
 	AugmentObjectRenderingModeOpaque,
 	AugmentObjectRenderingModeTransparent,
-	AugmentMaterialOpacityModeStandard,
-	AugmentMaterialOpacityModeMixed,
 	AugmentMaterialRenderingModeStandard,
 	AugmentMaterialRenderingModeMixedOpaque,
 	AugmentMaterialRenderingModeMixedTransparent,
+	AugmentMaterialOpacityModeMixed,
 	LinearEncoding,
 	NoToneMapping
 } from '../constants.js';
@@ -1695,6 +1694,7 @@ function WebGLRenderer( parameters ) {
 				WebGLUniforms.upload( _gl, materialOpacityUniformsList, opacityUniforms, _this );
 
 			}
+
 		}
 
 		if ( refreshMaterial || materialProperties.receiveShadow !== object.receiveShadow ) {
@@ -1762,7 +1762,9 @@ function WebGLRenderer( parameters ) {
 
 	// Uniforms (refresh uniforms objects)
 
+	/* eslint-disable */
 	function refreshUniformsCommon( uniforms, material ) {
+	/* eslint-enable */
 
 		refreshUniformsOpacity( uniforms, material );
 
@@ -1910,14 +1912,18 @@ function WebGLRenderer( parameters ) {
 
 	}
 
+	/* eslint-disable */
 	function refreshUniformsLine( uniforms, material ) {
+	/* eslint-enable */
 
 		uniforms.diffuse.value = material.color;
 		uniforms.opacity.value = material.opacity;
 
 	}
 
+	/* eslint-disable */
 	function refreshUniformsDash( uniforms, material ) {
+	/* eslint-enable */
 
 		uniforms.dashSize.value = material.dashSize;
 		uniforms.totalSize.value = material.dashSize + material.gapSize;
@@ -1925,7 +1931,9 @@ function WebGLRenderer( parameters ) {
 
 	}
 
+	/* eslint-disable */
 	function refreshUniformsPoints( uniforms, material ) {
+	/* eslint-enable */
 
 		uniforms.diffuse.value = material.color;
 		uniforms.opacity.value = material.opacity;
@@ -1948,7 +1956,9 @@ function WebGLRenderer( parameters ) {
 
 	}
 
-	function refreshUniformsFog( uniforms, fog ) {
+	/* eslint-disable */
+	function refreshUniformsFog( uniforms, fog ) { /* eslint-disable-line no-unused-vars */
+	/* eslint-enable */
 
 		uniforms.fogColor.value = fog.color;
 
@@ -1965,7 +1975,9 @@ function WebGLRenderer( parameters ) {
 
 	}
 
+	/* eslint-disable */
 	function refreshUniformsLambert( uniforms, material ) {
+	/* eslint-enable */
 
 		if ( material.emissiveMap ) {
 
@@ -2012,7 +2024,9 @@ function WebGLRenderer( parameters ) {
 
 	}
 
+	/* eslint-disable */
 	function refreshUniformsToon( uniforms, material ) {
+	/* eslint-enable */
 
 		refreshUniformsPhong( uniforms, material );
 
@@ -2080,7 +2094,9 @@ function WebGLRenderer( parameters ) {
 
 	}
 
+	/* eslint-disable */
 	function refreshUniformsPhysical( uniforms, material ) {
+	/* eslint-enable */
 
 		uniforms.clearCoat.value = material.clearCoat;
 		uniforms.clearCoatRoughness.value = material.clearCoatRoughness;
@@ -2089,7 +2105,9 @@ function WebGLRenderer( parameters ) {
 
 	}
 
+	/* eslint-disable */
 	function refreshUniformsDepth( uniforms, material ) {
+	/* eslint-enable */
 
 		if ( material.displacementMap ) {
 
@@ -2101,7 +2119,9 @@ function WebGLRenderer( parameters ) {
 
 	}
 
+	/* eslint-disable */
 	function refreshUniformsDistance( uniforms, material ) {
+	/* eslint-enable */
 
 		if ( material.displacementMap ) {
 
@@ -2117,8 +2137,9 @@ function WebGLRenderer( parameters ) {
 
 	}
 
+	/* eslint-disable */
 	function refreshUniformsNormal( uniforms, material ) {
-
+	/* eslint-enable */
 		if ( material.bumpMap ) {
 
 			uniforms.bumpMap.value = material.bumpMap;

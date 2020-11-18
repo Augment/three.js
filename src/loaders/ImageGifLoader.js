@@ -20,8 +20,6 @@ Object.assign( ImageGifLoader.prototype, {
 
 	load: function ( url, onLoad, onProgress, onError ) {
 
-		var scope = this;
-
 		var texture = new AnimatedGifTexture();
 
 		var loader = new FileLoader( this.manager );

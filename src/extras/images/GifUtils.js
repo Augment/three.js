@@ -56,6 +56,7 @@ GifUtils.parsers = {
 				arr[ i ] = stream.readBytes( size );
 
 			}
+
 			return arr;
 
 		};
@@ -78,6 +79,7 @@ GifUtils.subBlocks = {
 			out = out.concat( stream.readBytes( size ) );
 
 		}
+
 		return out;
 
 	}
@@ -185,7 +187,7 @@ GifUtils.text = {
 // application block
 GifUtils.application = {
 	label: 'application',
-	requires: function ( stream, obj, parent ) {
+	requires: function ( stream ) {
 
 		// make sure this frame doesn't already have a gce, text, comment, or image
 		// as that means this block should be attached to the next frame
@@ -214,7 +216,7 @@ GifUtils.application = {
 // comment block
 GifUtils.comment = {
 	label: 'comment',
-	requires: function ( stream, obj, parent ) {
+	requires: function ( stream ) {
 
 		// make sure this frame doesn't already have a gce, text, comment, or image
 		// as that means this block should be attached to the next frame

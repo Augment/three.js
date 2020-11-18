@@ -139,6 +139,7 @@ Object.assign( AnimatedGifTextureAnimation.prototype, {
 				t = this.timeline[ this.currentFrameIndex ];
 
 			}
+
 			while ( animationTime > t ) {
 
 				t = this.timeline[ ++ this.currentFrameIndex ];
