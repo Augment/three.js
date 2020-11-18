@@ -6,6 +6,8 @@ const CullFaceNone = 0;
 const CullFaceBack = 1;
 const CullFaceFront = 2;
 const CullFaceFrontBack = 3;
+const FrontFaceDirectionCW = 0;
+const FrontFaceDirectionCCW = 1;
 const BasicShadowMap = 0;
 const PCFShadowMap = 1;
 const PCFSoftShadowMap = 2;
@@ -199,6 +201,14 @@ const StreamCopyUsage = 35042;
 
 const GLSL1 = "100";
 const GLSL3 = "300 es";
+
+var AugmentObjectRenderingModeOpaque = 0;
+var AugmentObjectRenderingModeTransparent = 1;
+var AugmentMaterialOpacityModeStandard = 0;
+var AugmentMaterialOpacityModeMixed = 1;
+var AugmentMaterialRenderingModeStandard = 0;
+var AugmentMaterialRenderingModeMixedOpaque = 1;
+var AugmentMaterialRenderingModeMixedTransparent = 2;
 
 /**
  * https://github.com/mrdoob/eventdispatcher.js/
@@ -8367,6 +8377,8 @@ function Material() {
 
 	this.opacity = 1;
 	this.transparent = false;
+	this.opacityMode = AugmentMaterialOpacityModeStandard;
+	this.opacityEffectiveMode = AugmentMaterialRenderingModeStandard;
 
 	this.blendSrc = SrcAlphaFactor;
 	this.blendDst = OneMinusSrcAlphaFactor;
@@ -12983,9 +12995,9 @@ var logdepthbuf_pars_vertex = "#ifdef USE_LOGDEPTHBUF\n\t#ifdef USE_LOGDEPTHBUF_
 
 var logdepthbuf_vertex = "#ifdef USE_LOGDEPTHBUF\n\t#ifdef USE_LOGDEPTHBUF_EXT\n\t\tvFragDepth = 1.0 + gl_Position.w;\n\t\tvIsPerspective = float( isPerspectiveMatrix( projectionMatrix ) );\n\t#else\n\t\tif ( isPerspectiveMatrix( projectionMatrix ) ) {\n\t\t\tgl_Position.z = log2( max( EPSILON, gl_Position.w + 1.0 ) ) * logDepthBufFC - 1.0;\n\t\t\tgl_Position.z *= gl_Position.w;\n\t\t}\n\t#endif\n#endif";
 
-var map_fragment = "#ifdef USE_MAP\n\tvec4 texelColor = texture2D( map, vUv );\n\ttexelColor = mapTexelToLinear( texelColor );\n\tdiffuseColor *= texelColor;\n#endif";
+var map_fragment = "#ifdef USE_MAP\n\tvec4 texelColor = texture2D( map, vUv );\n\tif (opacityRenderingMode!=0) {\n\t\tif ((opacityRenderingMode==1 && texelColor.a<0.95) || (opacityRenderingMode==2 && texelColor.a>0.989)) {\n\t\t\tdiscard;\n\t\t}\n\t}\n\ttexelColor = mapTexelToLinear( texelColor );\n\tdiffuseColor *= texelColor;\n#endif";
 
-var map_pars_fragment = "#ifdef USE_MAP\n\tuniform sampler2D map;\n#endif";
+var map_pars_fragment = "#ifdef USE_MAP\n\tuniform sampler2D map;\n\tuniform int opacityRenderingMode;\n#endif";
 
 var map_particle_fragment = "#if defined( USE_MAP ) || defined( USE_ALPHAMAP )\n\tvec2 uv = ( uvTransform * vec3( gl_PointCoord.x, 1.0 - gl_PointCoord.y, 1 ) ).xy;\n#endif\n#ifdef USE_MAP\n\tvec4 mapTexel = texture2D( map, uv );\n\tdiffuseColor *= mapTexelToLinear( mapTexel );\n#endif\n#ifdef USE_ALPHAMAP\n\tdiffuseColor.a *= texture2D( alphaMap, uv ).g;\n#endif";
 
@@ -13282,6 +13294,7 @@ const UniformsLib = {
 		uv2Transform: { value: new Matrix3() },
 
 		alphaMap: { value: null },
+		opacityRenderingMode: { value: 0 }
 
 	},
 
@@ -17989,7 +18002,21 @@ function WebGLRenderList( properties ) {
 
 		const renderItem = getNextRenderItem( object, geometry, material, groupOrder, z, group );
 
-		( material.transparent === true ? transparent : opaque ).push( renderItem );
+		if ( material.transparent === true ) {
+
+			if ( material.opacityMode == AugmentMaterialOpacityModeMixed ) {
+
+			  opaque.push( renderItem );
+
+			}
+
+			transparent.push( renderItem );
+
+		} else {
+
+			opaque.push( renderItem );
+
+		}
 
 	}
 
@@ -20193,6 +20220,1821 @@ function WebGLState( gl, extensions, capabilities ) {
 
 }
 
+/**
+ * @author augment // (use revised code of gifuct-js by matt-way https://github.com/matt-way/gifuct-js)
+ */
+
+// Stream object for reading off bytes from a byte array
+function ByteStream( data ) {
+
+	this.data = data;
+	this.pos = 0;
+
+}
+
+Object.assign( ByteStream.prototype, {
+	// read the next byte off the stream
+	readByte: function () {
+
+		return this.data[ this.pos ++ ];
+
+	},
+
+	// look at the next byte in the stream without updating the stream position
+	peekByte: function () {
+
+		return this.data[ this.pos ];
+
+	},
+
+	// read an array of bytes
+	readBytes: function ( n ) {
+
+		var bytes = new Array( n );
+		for ( var i = 0; i < n; i ++ ) {
+
+			bytes[ i ] = this.readByte();
+
+		}
+		return bytes;
+
+	},
+
+	// peek at an array of bytes without updating the stream position
+	peekBytes: function ( n ) {
+
+		var bytes = new Array( n );
+		for ( var i = 0; i < n; i ++ ) {
+
+			bytes[ i ] = this.data[ this.pos + i ];
+
+		}
+		return bytes;
+
+	},
+
+	// read a string from a byte set
+	readString: function ( len ) {
+
+		var str = '';
+		for ( var i = 0; i < len; i ++ ) {
+
+			str += String.fromCharCode( this.readByte() );
+
+		}
+		return str;
+
+	},
+
+	// read a single byte and return an array of bit booleans
+	readBitArray: function () {
+
+		var arr = [];
+		var bite = this.readByte();
+		for ( var i = 7; i >= 0; i -- ) {
+
+			arr.push( !! ( bite & ( 1 << i ) ) );
+
+		}
+		return arr;
+
+	},
+
+	// read an unsigned int with endian option
+	readUnsigned: function ( littleEndian ) {
+
+		var a = this.readBytes( 2 );
+		if ( littleEndian ) {
+
+			return ( a[ 1 ] << 8 ) + a[ 0 ];
+
+		} else {
+
+			return ( a[ 0 ] << 8 ) + a[ 1 ];
+
+		}
+
+	}
+
+} );
+
+function DataParser( data ) {
+
+	this.stream = new ByteStream( data );
+	// the final parsed object from the data
+	this.output = {};
+
+}
+
+Object.assign( DataParser.prototype, {
+	parse: function ( schema ) {
+
+		// the top level schema is just the top level parts array
+		this.parseParts( this.output, schema );
+		return this.output;
+
+	},
+
+	// parse a set of hierarchy parts providing the parent object, and the subschema
+	parseParts: function ( obj, schema ) {
+
+		for ( var i = 0; i < schema.length; i ++ ) {
+
+			var part = schema[ i ];
+			this.parsePart( obj, part );
+
+		}
+
+	},
+
+	parsePart: function ( obj, part ) {
+
+		var name = part.label;
+		var value;
+
+		// make sure the part meets any parse requirements
+		if ( part.requires && ! part.requires( this.stream, this.output, obj ) ) {
+
+			return;
+
+		}
+
+		if ( part.loop ) {
+
+			// create a parse loop over the parts
+			var items = [];
+			while ( part.loop( this.stream ) ) {
+
+				var item = {};
+				this.parseParts( item, part.parts );
+				items.push( item );
+
+			}
+			obj[ name ] = items;
+
+		} else if ( part.parts ) {
+
+			// process any child parts
+			value = {};
+			this.parseParts( value, part.parts );
+			obj[ name ] = value;
+
+		} else if ( part.parser ) {
+
+			// parse the value using a parser
+			value = part.parser( this.stream, this.output, obj );
+			if ( ! part.skip ) {
+
+				obj[ name ] = value;
+
+			}
+
+		} else if ( part.bits ) {
+
+			// convert the next byte to a set of bit fields
+			obj[ name ] = this.parseBits( part.bits );
+
+		}
+
+	},
+
+	// combine bits to calculate value
+	bitsToNum: function ( bitArray ) {
+
+		return bitArray.reduce( function ( s, n ) {
+
+			return s * 2 + n;
+
+		}, 0 );
+
+	},
+
+	// parse a byte as a bit set (flags and values)
+	parseBits: function ( details ) {
+
+		var out = {};
+		var bits = this.stream.readBitArray();
+		for ( var key in details ) {
+
+			var item = details[ key ];
+			if ( item.length ) {
+
+				// convert the bit set to value
+				out[ key ] = this.bitsToNum( bits.slice( item.index, item.index + item.length ) );
+
+			} else {
+
+				out[ key ] = bits[ item.index ];
+
+			}
+
+		}
+		return out;
+
+	}
+} );
+
+/**
+ * @author augment // (use revised code of gifuct-js by matt-way https://github.com/matt-way/gifuct-js)
+ */
+
+var GifUtils = {};
+GifUtils.parsers = {
+	// read a byte
+	readByte: function () {
+
+		return function ( stream ) {
+
+			return stream.readByte();
+
+		};
+
+	},
+	// read an array of bytes
+	readBytes: function ( length ) {
+
+		return function ( stream ) {
+
+			return stream.readBytes( length );
+
+		};
+
+	},
+	// read a string from bytes
+	readString: function ( length ) {
+
+		return function ( stream ) {
+
+			return stream.readString( length );
+
+		};
+
+	},
+	// read an unsigned int (with endian)
+	readUnsigned: function ( littleEndian ) {
+
+		return function ( stream ) {
+
+			return stream.readUnsigned( littleEndian );
+
+		};
+
+	},
+	// read an array of byte sets
+	readArray: function ( size, countFunc ) {
+
+		return function ( stream, obj, parent ) {
+
+			var count = countFunc( stream, obj, parent );
+			var arr = new Array( count );
+			for ( var i = 0; i < count; i ++ ) {
+
+				arr[ i ] = stream.readBytes( size );
+
+			}
+			return arr;
+
+		};
+
+	}
+};
+
+// Schema for the js file parser to use to parse gif files
+// For js object convenience (re-use), the schema objects are approximately reverse ordered
+
+// a set of 0x00 terminated subblocks
+GifUtils.subBlocks = {
+	label: 'blocks',
+	parser: function ( stream ) {
+
+		var out = [];
+		var terminator = 0x00;
+		for ( var size = stream.readByte(); size !== terminator; size = stream.readByte() ) {
+
+			out = out.concat( stream.readBytes( size ) );
+
+		}
+		return out;
+
+	}
+};
+
+// global control extension
+GifUtils.gce = {
+	label: 'gce',
+	requires: function ( stream ) {
+
+		// just peek at the top two bytes, and if true do this
+		var codes = stream.peekBytes( 2 );
+		return codes[ 0 ] === 0x21 && codes[ 1 ] === 0xF9;
+
+	},
+	parts: [
+		{ label: 'codes', parser: GifUtils.parsers.readBytes( 2 ), skip: true },
+		{ label: 'byteSize', parser: GifUtils.parsers.readByte() },
+		{ label: 'extras', bits: {
+			future: { index: 0, length: 3 },
+			disposal: { index: 3, length: 3 },
+			userInput: { index: 6 },
+			transparentColorGiven: { index: 7 }
+		} },
+		{ label: 'delay', parser: GifUtils.parsers.readUnsigned( true ) },
+		{ label: 'transparentColorIndex', parser: GifUtils.parsers.readByte() },
+		{ label: 'terminator', parser: GifUtils.parsers.readByte(), skip: true }
+	]
+};
+
+// image pipeline block
+GifUtils.image = {
+	label: 'image',
+	requires: function ( stream ) {
+
+		// peek at the next byte
+		var code = stream.peekByte();
+		return code === 0x2C;
+
+	},
+	parts: [
+		{ label: 'code', parser: GifUtils.parsers.readByte(), skip: true },
+		{
+			label: 'descriptor', // image descriptor
+			parts: [
+				{ label: 'left', parser: GifUtils.parsers.readUnsigned( true ) },
+				{ label: 'top', parser: GifUtils.parsers.readUnsigned( true ) },
+				{ label: 'width', parser: GifUtils.parsers.readUnsigned( true ) },
+				{ label: 'height', parser: GifUtils.parsers.readUnsigned( true ) },
+				{ label: 'lct', bits: {
+					exists: { index: 0 },
+					interlaced: { index: 1 },
+					sort: { index: 2 },
+					future: { index: 3, length: 2 },
+					size: { index: 5, length: 3 }
+				} }
+			]
+		}, {
+			label: 'lct', // optional local color table
+			requires: function ( stream, obj, parent ) {
+
+				return parent.descriptor.lct.exists;
+
+			},
+			parser: GifUtils.parsers.readArray( 3, function ( stream, obj, parent ) {
+
+				return Math.pow( 2, parent.descriptor.lct.size + 1 );
+
+			} )
+		}, {
+			label: 'data', // the image data blocks
+			parts: [
+				{ label: 'minCodeSize', parser: GifUtils.parsers.readByte() },
+				GifUtils.subBlocks
+			]
+		}
+	]
+};
+
+// plain text block
+GifUtils.text = {
+	label: 'text',
+	requires: function ( stream ) {
+
+		// just peek at the top two bytes, and if true do this
+		var codes = stream.peekBytes( 2 );
+		return codes[ 0 ] === 0x21 && codes[ 1 ] === 0x01;
+
+	},
+	parts: [
+		{ label: 'codes', parser: GifUtils.parsers.readBytes( 2 ), skip: true },
+		{ label: 'blockSize', parser: GifUtils.parsers.readByte() },
+		{
+			label: 'preData',
+			parser: function ( stream, obj, parent ) {
+
+				return stream.readBytes( parent.text.blockSize );
+
+			}
+		},
+		GifUtils.subBlocks
+	]
+};
+
+// application block
+GifUtils.application = {
+	label: 'application',
+	requires: function ( stream, obj, parent ) {
+
+		// make sure this frame doesn't already have a gce, text, comment, or image
+		// as that means this block should be attached to the next frame
+		//if(parent.gce || parent.text || parent.image || parent.comment){ return false; }
+
+		// peek at the top two bytes
+		var codes = stream.peekBytes( 2 );
+		return codes[ 0 ] === 0x21 && codes[ 1 ] === 0xFF;
+
+	},
+	parts: [
+		{ label: 'codes', parser: GifUtils.parsers.readBytes( 2 ), skip: true },
+		{ label: 'blockSize', parser: GifUtils.parsers.readByte() },
+		{
+			label: 'id',
+			parser: function ( stream, obj, parent ) {
+
+				return stream.readString( parent.blockSize );
+
+			}
+		},
+		GifUtils.subBlocks
+	]
+};
+
+// comment block
+GifUtils.comment = {
+	label: 'comment',
+	requires: function ( stream, obj, parent ) {
+
+		// make sure this frame doesn't already have a gce, text, comment, or image
+		// as that means this block should be attached to the next frame
+		//if(parent.gce || parent.text || parent.image || parent.comment){ return false; }
+
+		// peek at the top two bytes
+		var codes = stream.peekBytes( 2 );
+		return codes[ 0 ] === 0x21 && codes[ 1 ] === 0xFE;
+
+	},
+	parts: [
+		{ label: 'codes', parser: GifUtils.parsers.readBytes( 2 ), skip: true },
+		GifUtils.subBlocks
+	]
+};
+
+// frames of ext and image data
+GifUtils.frames = {
+	label: 'frames',
+	parts: [
+		GifUtils.gce,
+		GifUtils.application,
+		GifUtils.comment,
+		GifUtils.image,
+		GifUtils.text
+	],
+	loop: function ( stream ) {
+
+		var nextCode = stream.peekByte();
+		// rather than check for a terminator, we should check for the existence
+		// of an ext or image block to avoid infinite loops
+		//var terminator = 0x3B;
+		//return nextCode !== terminator;
+		return nextCode === 0x21 || nextCode === 0x2C;
+
+	}
+};
+
+// main GIF schema
+GifUtils.schemaGIF = [
+	{
+		label: 'header', // gif header
+		parts: [
+			{ label: 'signature', parser: GifUtils.parsers.readString( 3 ) },
+			{ label: 'version', parser: GifUtils.parsers.readString( 3 ) }
+		]
+	}, {
+		label: 'lsd', // local screen descriptor
+		parts: [
+			{ label: 'width', parser: GifUtils.parsers.readUnsigned( true ) },
+			{ label: 'height', parser: GifUtils.parsers.readUnsigned( true ) },
+			{ label: 'gct', bits: {
+				exists: { index: 0 },
+				resolution: { index: 1, length: 3 },
+				sort: { index: 4 },
+				size: { index: 5, length: 3 }
+			} },
+			{ label: 'backgroundColorIndex', parser: GifUtils.parsers.readByte() },
+			{ label: 'pixelAspectRatio', parser: GifUtils.parsers.readByte() }
+		]
+	}, {
+		label: 'gct', // global color table
+		requires: function ( stream, obj ) {
+
+			return obj.lsd.gct.exists;
+
+		},
+		parser: GifUtils.parsers.readArray( 3, function ( stream, obj ) {
+
+			return Math.pow( 2, obj.lsd.gct.size + 1 );
+
+		} )
+	},
+	GifUtils.frames // content frames
+];
+
+/**
+ * @author augment // (use revised code of gifuct-js by matt-way https://github.com/matt-way/gifuct-js)
+ */
+
+function GifReader( arrayBuffer ) {
+
+	// convert to byte array
+	var byteData = new Uint8Array( arrayBuffer );
+	var parser = new DataParser( byteData );
+	// parse the data
+	this.raw = parser.parse( GifUtils.schemaGIF );
+
+	// set a flag to make sure the gif contains at least one image
+	this.raw.hasImages = false;
+	for ( var f = 0; f < this.raw.frames.length; f ++ ) {
+
+		if ( this.raw.frames[ f ].image ) {
+
+			this.raw.hasImages = true;
+			break;
+
+		}
+
+	}
+
+}
+
+Object.assign( GifReader.prototype, {
+	// process a single gif image frames data, decompressing it using LZW
+	// if buildPatch is true, the returned image will be a clamped 8 bit image patch
+	// for use directly with a canvas.
+	decompressFrame: function ( index, buildPatch ) {
+
+		// make sure a valid frame is requested
+		if ( index >= this.raw.frames.length ) {
+
+			return null;
+
+		}
+
+		var frame = this.raw.frames[ index ];
+		if ( frame.image ) {
+
+			// get the number of pixels
+			var totalPixels = frame.image.descriptor.width * frame.image.descriptor.height;
+
+			// do lzw decompression
+			var pixels = lzw( frame.image.data.minCodeSize, frame.image.data.blocks, totalPixels );
+
+			// deal with interlacing if necessary
+			if ( frame.image.descriptor.lct.interlaced ) {
+
+				pixels = deinterlace( pixels, frame.image.descriptor.width );
+
+			}
+
+			// setup usable image object
+			var image = {
+				pixels: pixels,
+				dims: {
+					top: frame.image.descriptor.top,
+					left: frame.image.descriptor.left,
+					width: frame.image.descriptor.width,
+					height: frame.image.descriptor.height
+				}
+			};
+
+			// color table
+			if ( frame.image.descriptor.lct && frame.image.descriptor.lct.exists ) {
+
+				image.colorTable = frame.image.lct;
+
+			} else {
+
+				image.colorTable = this.raw.gct;
+
+			}
+
+			// add per frame relevant gce information
+			if ( frame.gce ) {
+
+				image.delay = ( frame.gce.delay || 10 ) * 10; // convert to ms
+				image.disposalType = frame.gce.extras.disposal;
+				// transparency
+				if ( frame.gce.extras.transparentColorGiven ) {
+
+					image.transparentIndex = frame.gce.transparentColorIndex;
+
+				}
+
+			}
+
+			// create canvas usable imagedata if desired
+			if ( buildPatch ) {
+
+				image.patch = generatePatch( image );
+
+			}
+
+			return image;
+
+		}
+
+		// frame does not contains image
+		return null;
+
+		/**
+       * javascript port of java LZW decompression
+       * Original java author url: https://gist.github.com/devunwired/4479231
+       */
+		function lzw( minCodeSize, data, pixelCount ) {
+
+			var MAX_STACK_SIZE = 4096;
+			var nullCode = - 1;
+
+			var npix = pixelCount;
+			var available, clear, code_mask, code_size, end_of_information, in_code, old_code, bits, code, i, datum, data_size, first, top, bi, pi, count;
+
+			var dstPixels = new Array( pixelCount );
+			var prefix = new Array( MAX_STACK_SIZE );
+			var suffix = new Array( MAX_STACK_SIZE );
+			var pixelStack = new Array( MAX_STACK_SIZE + 1 );
+
+			// Initialize GIF data stream decoder.
+			data_size = minCodeSize;
+			clear = 1 << data_size;
+			end_of_information = clear + 1;
+			available = clear + 2;
+			old_code = nullCode;
+			code_size = data_size + 1;
+			code_mask = ( 1 << code_size ) - 1;
+			for ( code = 0; code < clear; code ++ ) {
+
+				prefix[ code ] = 0;
+				suffix[ code ] = code;
+
+			}
+
+			// Decode GIF pixel stream.
+			datum = bits = count = first = top = pi = bi = 0;
+			for ( i = 0; i < npix; ) {
+
+				if ( top === 0 ) {
+
+					if ( bits < code_size ) {
+
+						// get the next byte
+						datum += data[ bi ] << bits;
+
+						bits += 8;
+						bi ++;
+						continue;
+
+					}
+					// Get the next code.
+					code = datum & code_mask;
+					datum >>= code_size;
+					bits -= code_size;
+					// Interpret the code
+					if ( ( code > available ) || ( code == end_of_information ) ) {
+
+						break;
+
+					}
+					if ( code == clear ) {
+
+						// Reset decoder.
+						code_size = data_size + 1;
+						code_mask = ( 1 << code_size ) - 1;
+						available = clear + 2;
+						old_code = nullCode;
+						continue;
+
+					}
+					if ( old_code == nullCode ) {
+
+						pixelStack[ top ++ ] = suffix[ code ];
+						old_code = code;
+						first = code;
+						continue;
+
+					}
+					in_code = code;
+					if ( code == available ) {
+
+						pixelStack[ top ++ ] = first;
+						code = old_code;
+
+					}
+					while ( code > clear ) {
+
+						pixelStack[ top ++ ] = suffix[ code ];
+						code = prefix[ code ];
+
+					}
+
+					first = suffix[ code ] & 0xff;
+					pixelStack[ top ++ ] = first;
+
+					// add a new string to the table, but only if space is available
+					// if not, just continue with current table until a clear code is found
+					// (deferred clear code implementation as per GIF spec)
+					if ( available < MAX_STACK_SIZE ) {
+
+						prefix[ available ] = old_code;
+						suffix[ available ] = first;
+						available ++;
+						if ( ( ( available & code_mask ) === 0 ) && ( available < MAX_STACK_SIZE ) ) {
+
+							code_size ++;
+							code_mask += available;
+
+						}
+
+					}
+					old_code = in_code;
+
+				}
+				// Pop a pixel off the pixel stack.
+				top --;
+				dstPixels[ pi ++ ] = pixelStack[ top ];
+				i ++;
+
+			}
+
+			for ( i = pi; i < npix; i ++ ) {
+
+				dstPixels[ i ] = 0; // clear missing pixels
+
+			}
+
+			return dstPixels;
+
+		}
+
+		// deinterlace function from https://github.com/shachaf/jsgif
+		function deinterlace( pixels, width ) {
+
+			var newPixels = new Array( pixels.length );
+			var rows = pixels.length / width;
+			var cpRow = function ( toRow, fromRow ) {
+
+				var fromPixels = pixels.slice( fromRow * width, ( fromRow + 1 ) * width );
+				newPixels.splice.apply( newPixels, [ toRow * width, width ].concat( fromPixels ) );
+
+			};
+
+			// See appendix E.
+			var offsets = [ 0, 4, 2, 1 ];
+			var steps = [ 8, 8, 4, 2 ];
+
+			var fromRow = 0;
+			for ( var pass = 0; pass < 4; pass ++ ) {
+
+				for ( var toRow = offsets[ pass ]; toRow < rows; toRow += steps[ pass ] ) {
+
+					cpRow( toRow, fromRow );
+					fromRow ++;
+
+				}
+
+			}
+
+			return newPixels;
+
+		}
+
+		// create a clamped byte array patch for the frame image to be used directly with a canvas
+		// TODO: could potentially squeeze some performance by doing a direct 32bit write per iteration
+		function generatePatch( image ) {
+
+			var totalPixels = image.pixels.length;
+			var patchData = new Uint8Array( totalPixels * 4 ); //Uint8ClampedArray: not acceptable in gl.texture2D
+			for ( var i = 0; i < totalPixels; i ++ ) {
+
+				var pos = i * 4;
+				var colorIndex = image.pixels[ i ];
+				var color = image.colorTable[ colorIndex ];
+				patchData[ pos ] = color[ 0 ];
+				patchData[ pos + 1 ] = color[ 1 ];
+				patchData[ pos + 2 ] = color[ 2 ];
+				patchData[ pos + 3 ] = colorIndex !== image.transparentIndex ? 255 : 0;
+
+			}
+
+			return patchData;
+
+		}
+
+	},
+
+	// returns all frames decompressed
+	decompressFrames: function ( buildPatch ) {
+
+		var frames = [];
+		for ( var i = 0; i < this.raw.frames.length; i ++ ) {
+
+			var frame = this.raw.frames[ i ];
+			if ( frame.image ) {
+
+				frames.push( this.decompressFrame( i, buildPatch ) );
+
+			}
+
+		}
+		return frames;
+
+	}
+} );
+
+/**
+ * @author augment
+ */
+
+function AnimatedGifTextureAnimationTicker() {
+
+	var subscriptions = [];
+
+	function update( time ) {
+
+		subscriptions.forEach( function ( animation ) {
+
+			animation.update( time );
+
+		} );
+
+		if ( 0 !== subscriptions.length ) {
+
+			window.requestAnimationFrame( update );
+
+		}
+
+	}
+
+	this.subscribe = function ( animatedGifTexture ) {
+
+		if ( - 1 === subscriptions.findIndex( function ( elem ) {
+
+			return ( elem === animatedGifTexture );
+
+		} ) ) {
+
+			subscriptions.push( animatedGifTexture );
+
+			if ( 1 === subscriptions.length ) {
+
+				window.requestAnimationFrame( update );
+
+			}
+
+		}
+
+	};
+
+	this.unsubscribe = function ( animatedGifTexture ) {
+
+		var index = subscriptions.findIndex( function ( elem ) {
+
+			return ( elem === animatedGifTexture );
+
+		} );
+
+		if ( - 1 !== index ) {
+
+			subscriptions.splice( index, 0 );
+
+		}
+
+	};
+
+}
+
+function AnimatedGifTextureAnimation( frames, updateCallback ) {
+
+	this.frames = frames;
+
+	this.startTime = null;
+	this.playing = false;
+	this.currentFrameIndex = 0;
+	this.timeline = [];
+	this.duration = 0;
+	this.initialized = false;
+
+	this.onUpdateCallback = updateCallback;
+
+	if ( frames ) {
+
+		this.timeline = frames.map( ( function () {
+
+			var sum = 0.0;
+			return function ( entry ) {
+
+				sum += entry.delay;
+				return sum;
+
+			};
+
+		} )() );
+
+		this.duration = this.timeline[ this.timeline.length - 1 ];
+
+	}
+
+}
+
+Object.assign( AnimatedGifTextureAnimation.prototype, {
+
+	start: function () {
+
+		if ( 1 === this.frames.length )
+			return;
+
+		this.startTime = window.performance.now();
+		this.playing = true;
+		this.currentFrameIndex = 0;
+
+		AnimatedGifTextureAnimation.Ticker.subscribe( this );
+
+	},
+
+	stop: function () {
+
+		this.playing = false;
+		this.initialized = false;
+		AnimatedGifTextureAnimation.Ticker.unsubscribe( this );
+
+	},
+
+	update: function ( time ) {
+
+		if ( 1 === this.frames.length )
+			this.currentFrameIndex = 0;
+
+		if ( this.playing && this.timeline ) {
+
+			if ( ! this.initialized ) {
+
+				this.initialized = true;
+				this.startTime = time;
+
+			}
+
+			var animationTime = ( time - this.startTime ) % this.duration;
+			var t = this.timeline[ this.currentFrameIndex ];
+
+			if ( animationTime < t ) {
+
+				this.currentFrameIndex = 0;
+				t = this.timeline[ this.currentFrameIndex ];
+
+			}
+			while ( animationTime > t ) {
+
+				t = this.timeline[ ++ this.currentFrameIndex ];
+
+			}
+
+		}
+
+		this.onUpdateCallback();
+
+	},
+
+	getFrame: function () {
+
+		return this.frames[ this.currentFrameIndex ];
+
+	}
+} );
+
+AnimatedGifTextureAnimation.Ticker = new AnimatedGifTextureAnimationTicker();
+
+/**
+ * @author augment
+ */
+
+function AnimatedGifTexture( framesData, width, height, format, type, mapping, wrapS, wrapT, magFilter, minFilter, anisotropy, encoding ) {
+
+	Texture.call( this, null, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy, encoding );
+
+	this.image = {
+		data: null,
+		width: width,
+		height: height
+	};
+
+	this.magFilter = NearestFilter;
+	this.minFilter = NearestFilter;
+	this.wrapS = ClampToEdgeWrapping;
+	this.wrapT = ClampToEdgeWrapping;
+
+	this.generateMipmaps = false;
+	this.flipY = false;
+	this.unpackAlignment = 4;
+
+	this.animation = null;
+	if ( framesData ) {
+
+		this.setFramesData( framesData );
+
+	}
+
+}
+
+AnimatedGifTexture.prototype = Object.create( Texture.prototype );
+AnimatedGifTexture.prototype.constructor = AnimatedGifTexture;
+
+AnimatedGifTexture.prototype.isAnimatedTexture = true;
+
+Object.assign( AnimatedGifTexture.prototype, {
+
+	dispose: function () {
+
+		if ( this.animation ) {
+
+			this.animation.stop();
+
+		}
+
+		Texture.prototype.dispose.call( this );
+
+	},
+
+	setFramesData: function ( data ) {
+
+		function onUpdate() {
+
+			self.needsUpdate = true;
+
+		}
+
+		if ( data ) {
+
+			var self = this;
+
+			this.animation = new AnimatedGifTextureAnimation( this.prepareFullFrames( data ), onUpdate );
+
+		}
+
+	},
+
+	getFrame: function () {
+
+		if ( this.animation ) {
+
+			return this.animation.getFrame();
+
+		} else {
+
+			return undefined;
+
+		}
+
+	},
+
+	preparePatchFrames: function ( frames ) {
+
+		var width = frames[ 0 ].dims.width, height = frames[ 0 ].dims.height, depth = 4, count = frames.length;
+		var frameLineWidth = width * depth, patchLineWidth = 0, newPatchLineWidth = 0;
+		var previousCompleteFrame, frame, newPatchData, dims, area, frameArea;
+		var processedPatches = [];
+
+		var patch = { data: [], height: 0, left: 0, parial: false, top: 0, width: 0 };
+
+		for ( var i = 0; i < count; ++ i ) {
+
+			frame = frames[ i ];
+			dims = frame.dims;
+			patch = { data: [], delay: frame.delay, height: dims.height, left: dims.left, partial: false, top: dims.top, width: dims.width };
+
+			if ( width === dims.width && height === dims.height ) {
+
+				patch.data = frame.patch;
+				patch.partial = false;
+				previousCompleteFrame = patch.data;
+
+			} else {
+
+				patchLineWidth = dims.width * depth;
+
+				var fr, pr, c; { // 32-bit copy
+
+					if ( previousCompleteFrame ) {
+
+						var buffer = new ArrayBuffer( depth * dims.width * dims.height );
+						newPatchData = new Uint8Array( buffer );
+						newPatchData.set( frame.patch, 0 );
+						area = new Uint32Array( buffer );
+						newPatchLineWidth = dims.width;
+
+						frameArea = new Uint32Array( previousCompleteFrame.buffer );
+						frameArea = frameArea.subarray( dims.top * width + dims.left );
+
+					} else {
+
+						var buffer = new ArrayBuffer( depth * width * height );
+						newPatchData = new Uint8Array( buffer );
+						area = ( new Uint32Array( buffer ) ).subarray( dims.top * width + dims.left );
+						newPatchLineWidth = width;
+
+						frameArea = new Uint32Array( width * height );
+						frameArea = frameArea.subarray( dims.top * width + dims.left );
+
+					}
+					frameLineWidth = width;
+					patchLineWidth = dims.width;
+
+					for ( var fr = 0, pr = 0; pr < dims.height * newPatchLineWidth; fr += frameLineWidth, pr += newPatchLineWidth ) {
+
+						for ( var c = 0; c < patchLineWidth; ++ c ) {
+
+							// copy the existing background only if the pixel is transparent
+							if ( 0 === ( area[ pr + c ] & 0xff000000 ) ) { // alpha is 0 or 255
+
+								area[ pr + c ] = frameArea[ fr + c ];
+
+							}
+
+						}
+
+					}
+
+				}
+
+				patch.data = newPatchData;
+				patch.partial = true;
+
+			}
+
+			processedPatches.push( patch );
+
+		}
+
+		return processedPatches;
+
+	},
+
+	prepareFullFrames: function ( frames ) {
+
+		var width = frames[ 0 ].dims.width, height = frames[ 0 ].dims.height, count = frames.length;
+		var originalpatchLineWidth = 0;
+		var previousCompleteFrame, frame, dims, area, originalPatchArea;
+		var processedFrames = [];
+
+		var patch = { data: [], height: 0, left: 0, parial: false, top: 0, width: 0 };
+
+		for ( var i = 0; i < count; ++ i ) {
+
+			frame = frames[ i ];
+			dims = frame.dims;
+			patch = { data: [], delay: frame.delay, height: height, left: 0, partial: false, top: 0, width: width };
+
+			if ( width === dims.width && height === dims.height ) {
+
+				patch.data = frame.patch;
+				patch.partial = false;
+				previousCompleteFrame = patch.data;
+
+			} else {
+
+				var buffer = new ArrayBuffer( previousCompleteFrame.buffer.byteLength );
+				patch.data = new Uint8Array( buffer );
+				patch.data.set( previousCompleteFrame, 0 ); // copy the whole previous image
+				area = ( new Uint32Array( buffer ) ).subarray( dims.top * width + dims.left );
+
+				originalPatchArea = new Uint32Array( frame.patch.buffer );
+				originalpatchLineWidth = dims.width;
+
+				var greenLine = new Uint32Array( dims.width );
+				for ( var c = 0; c < dims.width; ++ c ) {
+
+					greenLine[ c ] = 0x00ff00ff;
+
+				}
+
+				for ( var fr = 0, pr = 0; pr < dims.height * originalpatchLineWidth; fr += width, pr += originalpatchLineWidth ) {
+
+					for ( var c = 0; c < originalpatchLineWidth; ++ c ) {
+
+						// copy the new patch when the pixel is not transparent
+						if ( 0 !== ( originalPatchArea[ pr + c ] & 0xff000000 ) ) { // alpha is 0 or 255
+
+							area[ fr + c ] = originalPatchArea[ pr + c ];
+
+						}
+
+					}
+
+					//area.set(greenLine, fr);
+
+				}
+
+				patch.partial = false;
+				previousCompleteFrame = patch.data;
+
+			}
+
+			processedFrames.push( patch );
+
+		}
+
+		return processedFrames;
+
+	}
+} );
+
+const Cache = {
+
+	enabled: false,
+
+	files: {},
+
+	add: function ( key, file ) {
+
+		if ( this.enabled === false ) return;
+
+		// console.log( 'THREE.Cache', 'Adding key:', key );
+
+		this.files[ key ] = file;
+
+	},
+
+	get: function ( key ) {
+
+		if ( this.enabled === false ) return;
+
+		// console.log( 'THREE.Cache', 'Checking key:', key );
+
+		return this.files[ key ];
+
+	},
+
+	remove: function ( key ) {
+
+		delete this.files[ key ];
+
+	},
+
+	clear: function () {
+
+		this.files = {};
+
+	}
+
+};
+
+function LoadingManager( onLoad, onProgress, onError ) {
+
+	const scope = this;
+
+	let isLoading = false;
+	let itemsLoaded = 0;
+	let itemsTotal = 0;
+	let urlModifier = undefined;
+	const handlers = [];
+
+	// Refer to #5689 for the reason why we don't set .onStart
+	// in the constructor
+
+	this.onStart = undefined;
+	this.onLoad = onLoad;
+	this.onProgress = onProgress;
+	this.onError = onError;
+
+	this.itemStart = function ( url ) {
+
+		itemsTotal ++;
+
+		if ( isLoading === false ) {
+
+			if ( scope.onStart !== undefined ) {
+
+				scope.onStart( url, itemsLoaded, itemsTotal );
+
+			}
+
+		}
+
+		isLoading = true;
+
+	};
+
+	this.itemEnd = function ( url ) {
+
+		itemsLoaded ++;
+
+		if ( scope.onProgress !== undefined ) {
+
+			scope.onProgress( url, itemsLoaded, itemsTotal );
+
+		}
+
+		if ( itemsLoaded === itemsTotal ) {
+
+			isLoading = false;
+
+			if ( scope.onLoad !== undefined ) {
+
+				scope.onLoad();
+
+			}
+
+		}
+
+	};
+
+	this.itemError = function ( url ) {
+
+		if ( scope.onError !== undefined ) {
+
+			scope.onError( url );
+
+		}
+
+	};
+
+	this.resolveURL = function ( url ) {
+
+		if ( urlModifier ) {
+
+			return urlModifier( url );
+
+		}
+
+		return url;
+
+	};
+
+	this.setURLModifier = function ( transform ) {
+
+		urlModifier = transform;
+
+		return this;
+
+	};
+
+	this.addHandler = function ( regex, loader ) {
+
+		handlers.push( regex, loader );
+
+		return this;
+
+	};
+
+	this.removeHandler = function ( regex ) {
+
+		const index = handlers.indexOf( regex );
+
+		if ( index !== - 1 ) {
+
+			handlers.splice( index, 2 );
+
+		}
+
+		return this;
+
+	};
+
+	this.getHandler = function ( file ) {
+
+		for ( let i = 0, l = handlers.length; i < l; i += 2 ) {
+
+			const regex = handlers[ i ];
+			const loader = handlers[ i + 1 ];
+
+			if ( regex.global ) regex.lastIndex = 0; // see #17920
+
+			if ( regex.test( file ) ) {
+
+				return loader;
+
+			}
+
+		}
+
+		return null;
+
+	};
+
+}
+
+const DefaultLoadingManager = new LoadingManager();
+
+function Loader( manager ) {
+
+	this.manager = ( manager !== undefined ) ? manager : DefaultLoadingManager;
+
+	this.crossOrigin = 'anonymous';
+	this.withCredentials = false;
+	this.path = '';
+	this.resourcePath = '';
+	this.requestHeader = {};
+
+}
+
+Object.assign( Loader.prototype, {
+
+	load: function ( /* url, onLoad, onProgress, onError */ ) {},
+
+	loadAsync: function ( url, onProgress ) {
+
+		const scope = this;
+
+		return new Promise( function ( resolve, reject ) {
+
+			scope.load( url, resolve, onProgress, reject );
+
+		} );
+
+	},
+
+	parse: function ( /* data */ ) {},
+
+	setCrossOrigin: function ( crossOrigin ) {
+
+		this.crossOrigin = crossOrigin;
+		return this;
+
+	},
+
+	setWithCredentials: function ( value ) {
+
+		this.withCredentials = value;
+		return this;
+
+	},
+
+	setPath: function ( path ) {
+
+		this.path = path;
+		return this;
+
+	},
+
+	setResourcePath: function ( resourcePath ) {
+
+		this.resourcePath = resourcePath;
+		return this;
+
+	},
+
+	setRequestHeader: function ( requestHeader ) {
+
+		this.requestHeader = requestHeader;
+		return this;
+
+	}
+
+} );
+
+const loading = {};
+
+function FileLoader( manager ) {
+
+	Loader.call( this, manager );
+
+}
+
+FileLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
+
+	constructor: FileLoader,
+
+	load: function ( url, onLoad, onProgress, onError ) {
+
+		if ( url === undefined ) url = '';
+
+		if ( this.path !== undefined ) url = this.path + url;
+
+		url = this.manager.resolveURL( url );
+
+		const scope = this;
+
+		const cached = Cache.get( url );
+
+		if ( cached !== undefined ) {
+
+			scope.manager.itemStart( url );
+
+			setTimeout( function () {
+
+				if ( onLoad ) onLoad( cached );
+
+				scope.manager.itemEnd( url );
+
+			}, 0 );
+
+			return cached;
+
+		}
+
+		// Check if request is duplicate
+
+		if ( loading[ url ] !== undefined ) {
+
+			loading[ url ].push( {
+
+				onLoad: onLoad,
+				onProgress: onProgress,
+				onError: onError
+
+			} );
+
+			return;
+
+		}
+
+		// Check for data: URI
+		const dataUriRegex = /^data:(.*?)(;base64)?,(.*)$/;
+		const dataUriRegexResult = url.match( dataUriRegex );
+		let request;
+
+		// Safari can not handle Data URIs through XMLHttpRequest so process manually
+		if ( dataUriRegexResult ) {
+
+			const mimeType = dataUriRegexResult[ 1 ];
+			const isBase64 = !! dataUriRegexResult[ 2 ];
+
+			let data = dataUriRegexResult[ 3 ];
+			data = decodeURIComponent( data );
+
+			if ( isBase64 ) data = atob( data );
+
+			try {
+
+				let response;
+				const responseType = ( this.responseType || '' ).toLowerCase();
+
+				switch ( responseType ) {
+
+					case 'arraybuffer':
+					case 'blob':
+
+						const view = new Uint8Array( data.length );
+
+						for ( let i = 0; i < data.length; i ++ ) {
+
+							view[ i ] = data.charCodeAt( i );
+
+						}
+
+						if ( responseType === 'blob' ) {
+
+							response = new Blob( [ view.buffer ], { type: mimeType } );
+
+						} else {
+
+							response = view.buffer;
+
+						}
+
+						break;
+
+					case 'document':
+
+						const parser = new DOMParser();
+						response = parser.parseFromString( data, mimeType );
+
+						break;
+
+					case 'json':
+
+						response = JSON.parse( data );
+
+						break;
+
+					default: // 'text' or other
+
+						response = data;
+
+						break;
+
+				}
+
+				// Wait for next browser tick like standard XMLHttpRequest event dispatching does
+				setTimeout( function () {
+
+					if ( onLoad ) onLoad( response );
+
+					scope.manager.itemEnd( url );
+
+				}, 0 );
+
+			} catch ( error ) {
+
+				// Wait for next browser tick like standard XMLHttpRequest event dispatching does
+				setTimeout( function () {
+
+					if ( onError ) onError( error );
+
+					scope.manager.itemError( url );
+					scope.manager.itemEnd( url );
+
+				}, 0 );
+
+			}
+
+		} else {
+
+			// Initialise array for duplicate requests
+
+			loading[ url ] = [];
+
+			loading[ url ].push( {
+
+				onLoad: onLoad,
+				onProgress: onProgress,
+				onError: onError
+
+			} );
+
+			request = new XMLHttpRequest();
+
+			request.open( 'GET', url, true );
+
+			request.addEventListener( 'load', function ( event ) {
+
+				const response = this.response;
+
+				const callbacks = loading[ url ];
+
+				delete loading[ url ];
+
+				if ( this.status === 200 || this.status === 0 ) {
+
+					// Some browsers return HTTP Status 0 when using non-http protocol
+					// e.g. 'file://' or 'data://'. Handle as success.
+
+					if ( this.status === 0 ) console.warn( 'THREE.FileLoader: HTTP Status 0 received.' );
+
+					// Add to cache only on HTTP success, so that we do not cache
+					// error response bodies as proper responses to requests.
+					Cache.add( url, response );
+
+					for ( let i = 0, il = callbacks.length; i < il; i ++ ) {
+
+						const callback = callbacks[ i ];
+						if ( callback.onLoad ) callback.onLoad( response );
+
+					}
+
+					scope.manager.itemEnd( url );
+
+				} else {
+
+					for ( let i = 0, il = callbacks.length; i < il; i ++ ) {
+
+						const callback = callbacks[ i ];
+						if ( callback.onError ) callback.onError( event );
+
+					}
+
+					scope.manager.itemError( url );
+					scope.manager.itemEnd( url );
+
+				}
+
+			}, false );
+
+			request.addEventListener( 'progress', function ( event ) {
+
+				const callbacks = loading[ url ];
+
+				for ( let i = 0, il = callbacks.length; i < il; i ++ ) {
+
+					const callback = callbacks[ i ];
+					if ( callback.onProgress ) callback.onProgress( event );
+
+				}
+
+			}, false );
+
+			request.addEventListener( 'error', function ( event ) {
+
+				const callbacks = loading[ url ];
+
+				delete loading[ url ];
+
+				for ( let i = 0, il = callbacks.length; i < il; i ++ ) {
+
+					const callback = callbacks[ i ];
+					if ( callback.onError ) callback.onError( event );
+
+				}
+
+				scope.manager.itemError( url );
+				scope.manager.itemEnd( url );
+
+			}, false );
+
+			request.addEventListener( 'abort', function ( event ) {
+
+				const callbacks = loading[ url ];
+
+				delete loading[ url ];
+
+				for ( let i = 0, il = callbacks.length; i < il; i ++ ) {
+
+					const callback = callbacks[ i ];
+					if ( callback.onError ) callback.onError( event );
+
+				}
+
+				scope.manager.itemError( url );
+				scope.manager.itemEnd( url );
+
+			}, false );
+
+			if ( this.responseType !== undefined ) request.responseType = this.responseType;
+			if ( this.withCredentials !== undefined ) request.withCredentials = this.withCredentials;
+
+			if ( request.overrideMimeType ) request.overrideMimeType( this.mimeType !== undefined ? this.mimeType : 'text/plain' );
+
+			for ( const header in this.requestHeader ) {
+
+				request.setRequestHeader( header, this.requestHeader[ header ] );
+
+			}
+
+			request.send( null );
+
+		}
+
+		scope.manager.itemStart( url );
+
+		return request;
+
+	},
+
+	setResponseType: function ( value ) {
+
+		this.responseType = value;
+		return this;
+
+	},
+
+	setMimeType: function ( value ) {
+
+		this.mimeType = value;
+		return this;
+
+	}
+
+} );
+
+/**
+ * @author augment
+ */
+
+function ImageGifLoader( manager ) {
+
+	this.manager = ( manager !== undefined ) ? manager : DefaultLoadingManager;
+
+}
+
+Object.assign( ImageGifLoader.prototype, {
+
+	crossOrigin: 'Anonymous',
+
+	load: function ( url, onLoad, onProgress, onError ) {
+
+		var texture = new AnimatedGifTexture();
+
+		var loader = new FileLoader( this.manager );
+		loader.setResponseType( 'arraybuffer' );
+
+		loader.load( url, function ( buffer ) {
+
+			var gifComponent = new GifReader( buffer );
+			var frames = gifComponent.decompressFrames( true );
+
+			if ( ! buffer ) return;
+
+			if ( undefined !== frames[ 0 ] ) {
+
+				texture.setFramesData( frames );
+				texture.image.width = frames[ 0 ].dims.width;
+				texture.image.height = frames[ 0 ].dims.height;
+
+			}
+
+			texture.format = RGBAFormat;
+			texture.type = UnsignedByteType;
+
+			texture.needsUpdate = true;
+
+			if ( onLoad ) onLoad( texture, buffer );
+
+		}, onProgress, onError );
+
+		return texture;
+
+	},
+
+	setCrossOrigin: function ( value ) {
+
+		this.crossOrigin = value;
+		return this;
+
+	},
+
+	setPath: function ( value ) {
+
+		this.path = value;
+		return this;
+
+	}
+} );
+
 function WebGLTextures( _gl, extensions, state, properties, capabilities, utils, info ) {
 
 	const isWebGL2 = capabilities.isWebGL2;
@@ -20808,6 +22650,22 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 			} else {
 
 				state.texImage2D( 3553, 0, glInternalFormat, image.width, image.height, 0, glFormat, glType, image.data );
+				textureProperties.__maxMipLevel = 0;
+
+			}
+
+		} else if ( ImageGifLoader !== undefined && texture.isAnimatedTexture ) {
+
+			var frame = texture.getFrame();
+
+			if ( frame.partial ) {
+
+				state.texSubImage2D( 3553, 0, frame.left, frame.top, frame.width, frame.height, glFormat, glType, frame.data );
+				textureProperties.__maxMipLevel = 0;
+
+			} else {
+
+				state.texImage2D( 3553, 0, glFormat, frame.width, frame.height, 0, glFormat, glType, frame.data );
 				textureProperties.__maxMipLevel = 0;
 
 			}
@@ -24126,10 +25984,8 @@ function WebGLRenderer( parameters ) {
 		const opaqueObjects = currentRenderList.opaque;
 		const transparentObjects = currentRenderList.transparent;
 
-		if ( opaqueObjects.length > 0 ) renderObjects( opaqueObjects, scene, camera );
-		if ( transparentObjects.length > 0 ) renderObjects( transparentObjects, scene, camera );
-
-		//
+		if ( opaqueObjects.length > 0 ) renderObjects( opaqueObjects, scene, camera, { depthWrite: true }, AugmentObjectRenderingModeOpaque );
+		if ( transparentObjects.length > 0 ) renderObjects( transparentObjects, scene, camera, { depthWrite: false }, AugmentObjectRenderingModeTransparent );
 
 		if ( scene.isScene === true ) scene.onAfterRender( _this, scene, camera );
 
@@ -24287,7 +26143,7 @@ function WebGLRenderer( parameters ) {
 
 	}
 
-	function renderObjects( renderList, scene, camera ) {
+	function renderObjects( renderList, scene, camera, overrideMaterialProperties, renderingMode ) {
 
 		const overrideMaterial = scene.isScene === true ? scene.overrideMaterial : null;
 
@@ -24299,6 +26155,34 @@ function WebGLRenderer( parameters ) {
 			const geometry = renderItem.geometry;
 			const material = overrideMaterial === null ? renderItem.material : overrideMaterial;
 			const group = renderItem.group;
+
+			if ( overrideMaterialProperties !== undefined ) {
+
+				for ( var property in overrideMaterialProperties ) {
+
+					if ( material[ property ] !== undefined ) {
+
+						material[ property ] = overrideMaterialProperties[ property ];
+
+					}
+
+				}
+
+			}
+
+			if ( material.transparent && material.opacityMode === AugmentMaterialOpacityModeMixed ) {
+
+				if ( renderingMode === AugmentObjectRenderingModeOpaque ) {
+
+					material.opacityEffectiveMode = AugmentMaterialRenderingModeMixedOpaque;
+
+				} else if ( renderingMode === AugmentObjectRenderingModeTransparent ) {
+
+					material.opacityEffectiveMode = AugmentMaterialRenderingModeMixedTransparent;
+
+				}
+
+			}
 
 			if ( camera.isArrayCamera ) {
 
@@ -24696,6 +26580,42 @@ function WebGLRenderer( parameters ) {
 
 		}
 
+		if ( ! refreshMaterial && material.transparent ) {
+
+			if ( material.isMeshBasicMaterial || material.isMeshLambertMaterial || material.isMeshPhongMaterial || material.isMeshStandardMaterial || material.isMeshDepthMaterial || material.isMeshDistanceMaterial || material.isMeshNormalMaterial || material.isShadowMaterial ) {
+
+				refreshUniformsOpacity( m_uniforms, material );
+
+				var materialOpacityUniformsList = [], opacityUniforms = {};
+				if ( material.opacity != undefined ) {
+
+					opacityUniforms.opacity = m_uniforms.opacity;
+
+				}
+
+				if ( material.opacity != undefined ) {
+
+					opacityUniforms.opacityRenderingMode = m_uniforms.opacityRenderingMode;
+
+				}
+
+				for ( var u = 0, uend = materialProperties.uniformsList.length; u < uend; ++ u ) {
+
+					var materialPropertiesUniform = materialProperties.uniformsList[ u ];
+
+					if ( opacityUniforms[ materialPropertiesUniform.id ] != undefined ) {
+
+						materialOpacityUniformsList.push( materialPropertiesUniform );
+
+					}
+
+				}
+
+				WebGLUniforms.upload( _gl, materialOpacityUniformsList, opacityUniforms, _this );
+
+			}
+		}
+
 		if ( refreshMaterial || materialProperties.receiveShadow !== object.receiveShadow ) {
 
 			materialProperties.receiveShadow = object.receiveShadow;
@@ -24756,6 +26676,20 @@ function WebGLRenderer( parameters ) {
 		p_uniforms.setValue( _gl, 'modelMatrix', object.matrixWorld );
 
 		return program;
+
+	}
+
+	function refreshUniformsOpacity( uniforms, material ) {
+
+		uniforms.opacity.value = material.opacity;
+
+		if ( uniforms.opacityRenderingMode == undefined ) {
+
+			uniforms.opacityRenderingMode = { value: AugmentMaterialRenderingModeStandard };
+
+		}
+
+		uniforms.opacityRenderingMode.value = material.opacityEffectiveMode;
 
 	}
 
@@ -36080,544 +38014,6 @@ Object.assign( AnimationClip.prototype, {
 
 } );
 
-const Cache = {
-
-	enabled: false,
-
-	files: {},
-
-	add: function ( key, file ) {
-
-		if ( this.enabled === false ) return;
-
-		// console.log( 'THREE.Cache', 'Adding key:', key );
-
-		this.files[ key ] = file;
-
-	},
-
-	get: function ( key ) {
-
-		if ( this.enabled === false ) return;
-
-		// console.log( 'THREE.Cache', 'Checking key:', key );
-
-		return this.files[ key ];
-
-	},
-
-	remove: function ( key ) {
-
-		delete this.files[ key ];
-
-	},
-
-	clear: function () {
-
-		this.files = {};
-
-	}
-
-};
-
-function LoadingManager( onLoad, onProgress, onError ) {
-
-	const scope = this;
-
-	let isLoading = false;
-	let itemsLoaded = 0;
-	let itemsTotal = 0;
-	let urlModifier = undefined;
-	const handlers = [];
-
-	// Refer to #5689 for the reason why we don't set .onStart
-	// in the constructor
-
-	this.onStart = undefined;
-	this.onLoad = onLoad;
-	this.onProgress = onProgress;
-	this.onError = onError;
-
-	this.itemStart = function ( url ) {
-
-		itemsTotal ++;
-
-		if ( isLoading === false ) {
-
-			if ( scope.onStart !== undefined ) {
-
-				scope.onStart( url, itemsLoaded, itemsTotal );
-
-			}
-
-		}
-
-		isLoading = true;
-
-	};
-
-	this.itemEnd = function ( url ) {
-
-		itemsLoaded ++;
-
-		if ( scope.onProgress !== undefined ) {
-
-			scope.onProgress( url, itemsLoaded, itemsTotal );
-
-		}
-
-		if ( itemsLoaded === itemsTotal ) {
-
-			isLoading = false;
-
-			if ( scope.onLoad !== undefined ) {
-
-				scope.onLoad();
-
-			}
-
-		}
-
-	};
-
-	this.itemError = function ( url ) {
-
-		if ( scope.onError !== undefined ) {
-
-			scope.onError( url );
-
-		}
-
-	};
-
-	this.resolveURL = function ( url ) {
-
-		if ( urlModifier ) {
-
-			return urlModifier( url );
-
-		}
-
-		return url;
-
-	};
-
-	this.setURLModifier = function ( transform ) {
-
-		urlModifier = transform;
-
-		return this;
-
-	};
-
-	this.addHandler = function ( regex, loader ) {
-
-		handlers.push( regex, loader );
-
-		return this;
-
-	};
-
-	this.removeHandler = function ( regex ) {
-
-		const index = handlers.indexOf( regex );
-
-		if ( index !== - 1 ) {
-
-			handlers.splice( index, 2 );
-
-		}
-
-		return this;
-
-	};
-
-	this.getHandler = function ( file ) {
-
-		for ( let i = 0, l = handlers.length; i < l; i += 2 ) {
-
-			const regex = handlers[ i ];
-			const loader = handlers[ i + 1 ];
-
-			if ( regex.global ) regex.lastIndex = 0; // see #17920
-
-			if ( regex.test( file ) ) {
-
-				return loader;
-
-			}
-
-		}
-
-		return null;
-
-	};
-
-}
-
-const DefaultLoadingManager = new LoadingManager();
-
-function Loader( manager ) {
-
-	this.manager = ( manager !== undefined ) ? manager : DefaultLoadingManager;
-
-	this.crossOrigin = 'anonymous';
-	this.withCredentials = false;
-	this.path = '';
-	this.resourcePath = '';
-	this.requestHeader = {};
-
-}
-
-Object.assign( Loader.prototype, {
-
-	load: function ( /* url, onLoad, onProgress, onError */ ) {},
-
-	loadAsync: function ( url, onProgress ) {
-
-		const scope = this;
-
-		return new Promise( function ( resolve, reject ) {
-
-			scope.load( url, resolve, onProgress, reject );
-
-		} );
-
-	},
-
-	parse: function ( /* data */ ) {},
-
-	setCrossOrigin: function ( crossOrigin ) {
-
-		this.crossOrigin = crossOrigin;
-		return this;
-
-	},
-
-	setWithCredentials: function ( value ) {
-
-		this.withCredentials = value;
-		return this;
-
-	},
-
-	setPath: function ( path ) {
-
-		this.path = path;
-		return this;
-
-	},
-
-	setResourcePath: function ( resourcePath ) {
-
-		this.resourcePath = resourcePath;
-		return this;
-
-	},
-
-	setRequestHeader: function ( requestHeader ) {
-
-		this.requestHeader = requestHeader;
-		return this;
-
-	}
-
-} );
-
-const loading = {};
-
-function FileLoader( manager ) {
-
-	Loader.call( this, manager );
-
-}
-
-FileLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
-
-	constructor: FileLoader,
-
-	load: function ( url, onLoad, onProgress, onError ) {
-
-		if ( url === undefined ) url = '';
-
-		if ( this.path !== undefined ) url = this.path + url;
-
-		url = this.manager.resolveURL( url );
-
-		const scope = this;
-
-		const cached = Cache.get( url );
-
-		if ( cached !== undefined ) {
-
-			scope.manager.itemStart( url );
-
-			setTimeout( function () {
-
-				if ( onLoad ) onLoad( cached );
-
-				scope.manager.itemEnd( url );
-
-			}, 0 );
-
-			return cached;
-
-		}
-
-		// Check if request is duplicate
-
-		if ( loading[ url ] !== undefined ) {
-
-			loading[ url ].push( {
-
-				onLoad: onLoad,
-				onProgress: onProgress,
-				onError: onError
-
-			} );
-
-			return;
-
-		}
-
-		// Check for data: URI
-		const dataUriRegex = /^data:(.*?)(;base64)?,(.*)$/;
-		const dataUriRegexResult = url.match( dataUriRegex );
-		let request;
-
-		// Safari can not handle Data URIs through XMLHttpRequest so process manually
-		if ( dataUriRegexResult ) {
-
-			const mimeType = dataUriRegexResult[ 1 ];
-			const isBase64 = !! dataUriRegexResult[ 2 ];
-
-			let data = dataUriRegexResult[ 3 ];
-			data = decodeURIComponent( data );
-
-			if ( isBase64 ) data = atob( data );
-
-			try {
-
-				let response;
-				const responseType = ( this.responseType || '' ).toLowerCase();
-
-				switch ( responseType ) {
-
-					case 'arraybuffer':
-					case 'blob':
-
-						const view = new Uint8Array( data.length );
-
-						for ( let i = 0; i < data.length; i ++ ) {
-
-							view[ i ] = data.charCodeAt( i );
-
-						}
-
-						if ( responseType === 'blob' ) {
-
-							response = new Blob( [ view.buffer ], { type: mimeType } );
-
-						} else {
-
-							response = view.buffer;
-
-						}
-
-						break;
-
-					case 'document':
-
-						const parser = new DOMParser();
-						response = parser.parseFromString( data, mimeType );
-
-						break;
-
-					case 'json':
-
-						response = JSON.parse( data );
-
-						break;
-
-					default: // 'text' or other
-
-						response = data;
-
-						break;
-
-				}
-
-				// Wait for next browser tick like standard XMLHttpRequest event dispatching does
-				setTimeout( function () {
-
-					if ( onLoad ) onLoad( response );
-
-					scope.manager.itemEnd( url );
-
-				}, 0 );
-
-			} catch ( error ) {
-
-				// Wait for next browser tick like standard XMLHttpRequest event dispatching does
-				setTimeout( function () {
-
-					if ( onError ) onError( error );
-
-					scope.manager.itemError( url );
-					scope.manager.itemEnd( url );
-
-				}, 0 );
-
-			}
-
-		} else {
-
-			// Initialise array for duplicate requests
-
-			loading[ url ] = [];
-
-			loading[ url ].push( {
-
-				onLoad: onLoad,
-				onProgress: onProgress,
-				onError: onError
-
-			} );
-
-			request = new XMLHttpRequest();
-
-			request.open( 'GET', url, true );
-
-			request.addEventListener( 'load', function ( event ) {
-
-				const response = this.response;
-
-				const callbacks = loading[ url ];
-
-				delete loading[ url ];
-
-				if ( this.status === 200 || this.status === 0 ) {
-
-					// Some browsers return HTTP Status 0 when using non-http protocol
-					// e.g. 'file://' or 'data://'. Handle as success.
-
-					if ( this.status === 0 ) console.warn( 'THREE.FileLoader: HTTP Status 0 received.' );
-
-					// Add to cache only on HTTP success, so that we do not cache
-					// error response bodies as proper responses to requests.
-					Cache.add( url, response );
-
-					for ( let i = 0, il = callbacks.length; i < il; i ++ ) {
-
-						const callback = callbacks[ i ];
-						if ( callback.onLoad ) callback.onLoad( response );
-
-					}
-
-					scope.manager.itemEnd( url );
-
-				} else {
-
-					for ( let i = 0, il = callbacks.length; i < il; i ++ ) {
-
-						const callback = callbacks[ i ];
-						if ( callback.onError ) callback.onError( event );
-
-					}
-
-					scope.manager.itemError( url );
-					scope.manager.itemEnd( url );
-
-				}
-
-			}, false );
-
-			request.addEventListener( 'progress', function ( event ) {
-
-				const callbacks = loading[ url ];
-
-				for ( let i = 0, il = callbacks.length; i < il; i ++ ) {
-
-					const callback = callbacks[ i ];
-					if ( callback.onProgress ) callback.onProgress( event );
-
-				}
-
-			}, false );
-
-			request.addEventListener( 'error', function ( event ) {
-
-				const callbacks = loading[ url ];
-
-				delete loading[ url ];
-
-				for ( let i = 0, il = callbacks.length; i < il; i ++ ) {
-
-					const callback = callbacks[ i ];
-					if ( callback.onError ) callback.onError( event );
-
-				}
-
-				scope.manager.itemError( url );
-				scope.manager.itemEnd( url );
-
-			}, false );
-
-			request.addEventListener( 'abort', function ( event ) {
-
-				const callbacks = loading[ url ];
-
-				delete loading[ url ];
-
-				for ( let i = 0, il = callbacks.length; i < il; i ++ ) {
-
-					const callback = callbacks[ i ];
-					if ( callback.onError ) callback.onError( event );
-
-				}
-
-				scope.manager.itemError( url );
-				scope.manager.itemEnd( url );
-
-			}, false );
-
-			if ( this.responseType !== undefined ) request.responseType = this.responseType;
-			if ( this.withCredentials !== undefined ) request.withCredentials = this.withCredentials;
-
-			if ( request.overrideMimeType ) request.overrideMimeType( this.mimeType !== undefined ? this.mimeType : 'text/plain' );
-
-			for ( const header in this.requestHeader ) {
-
-				request.setRequestHeader( header, this.requestHeader[ header ] );
-
-			}
-
-			request.send( null );
-
-		}
-
-		scope.manager.itemStart( url );
-
-		return request;
-
-	},
-
-	setResponseType: function ( value ) {
-
-		this.responseType = value;
-		return this;
-
-	},
-
-	setMimeType: function ( value ) {
-
-		this.mimeType = value;
-		return this;
-
-	}
-
-} );
-
 function AnimationLoader( manager ) {
 
 	Loader.call( this, manager );
@@ -37045,29 +38441,60 @@ TextureLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 
 	load: function ( url, onLoad, onProgress, onError ) {
 
-		const texture = new Texture();
+		var texture = null;
 
-		const loader = new ImageLoader( this.manager );
-		loader.setCrossOrigin( this.crossOrigin );
-		loader.setPath( this.path );
+		var isGIF = url.search( /\.gif$/ ) > 0 || url.search( /^data\:image\/gif/ ) === 0;
 
-		loader.load( url, function ( image ) {
+		if ( isGIF ) {
 
-			texture.image = image;
+			if ( ImageGifLoader == undefined ) {
 
-			// JPEGs can't have an alpha channel, so memory can be saved by storing them as RGB.
-			const isJPEG = url.search( /\.jpe?g($|\?)/i ) > 0 || url.search( /^data\:image\/jpeg/ ) === 0;
-
-			texture.format = isJPEG ? RGBFormat : RGBAFormat;
-			texture.needsUpdate = true;
-
-			if ( onLoad !== undefined ) {
-
-				onLoad( texture );
+				onError( new Error( 'THREE.TextureLoader: gif format is not supported' ) );
+				return;
 
 			}
 
-		}, onProgress, onError );
+			var gifLoader = new ImageGifLoader( this.manager );
+			gifLoader.setCrossOrigin( this.crossOrigin );
+			gifLoader.setPath( this.path );
+			gifLoader.load( url, function ( texture ) {
+
+				if ( onLoad !== undefined ) {
+
+					texture.animation.start();
+
+					onLoad( texture );
+
+				}
+
+			}, onProgress, onError );
+
+		} else {
+
+			const loader = new ImageLoader( this.manager );
+			loader.setCrossOrigin( this.crossOrigin );
+			loader.setPath( this.path );
+
+			texture = new Texture();
+			loader.load( url, function ( image ) {
+
+				texture.image = image;
+
+				// JPEGs can't have an alpha channel, so memory can be saved by storing them as RGB.
+				const isJPEG = url.search( /\.(jpg|jpeg)$/ ) > 0 || url.search( /^data\:image\/jpeg/ ) === 0;
+
+				texture.format = isJPEG ? RGBFormat : RGBAFormat;
+				texture.needsUpdate = true;
+
+				if ( onLoad !== undefined ) {
+
+					onLoad( texture );
+
+				}
+
+			}, onProgress, onError );
+
+		}
 
 		return texture;
 
@@ -51009,4 +52436,4 @@ if ( typeof __THREE_DEVTOOLS__ !== 'undefined' ) {
 
 }
 
-export { ACESFilmicToneMapping, AddEquation, AddOperation, AdditiveAnimationBlendMode, AdditiveBlending, AlphaFormat, AlwaysDepth, AlwaysStencilFunc, AmbientLight, AmbientLightProbe, AnimationClip, AnimationLoader, AnimationMixer, AnimationObjectGroup, AnimationUtils, ArcCurve, ArrayCamera, ArrowHelper, Audio, AudioAnalyser, AudioContext, AudioListener, AudioLoader, AxesHelper, AxisHelper, BackSide, BasicDepthPacking, BasicShadowMap, BinaryTextureLoader, Bone, BooleanKeyframeTrack, BoundingBoxHelper, Box2, Box3, Box3Helper, BoxBufferGeometry, BoxGeometry, BoxHelper, BufferAttribute, BufferGeometry, BufferGeometryLoader, ByteType, Cache, Camera, CameraHelper, CanvasRenderer, CanvasTexture, CatmullRomCurve3, CineonToneMapping, CircleBufferGeometry, CircleGeometry, ClampToEdgeWrapping, Clock, ClosedSplineCurve3, Color, ColorKeyframeTrack, CompressedTexture, CompressedTextureLoader, ConeBufferGeometry, ConeGeometry, CubeCamera, BoxGeometry as CubeGeometry, CubeReflectionMapping, CubeRefractionMapping, CubeTexture, CubeTextureLoader, CubeUVReflectionMapping, CubeUVRefractionMapping, CubicBezierCurve, CubicBezierCurve3, CubicInterpolant, CullFaceBack, CullFaceFront, CullFaceFrontBack, CullFaceNone, Curve, CurvePath, CustomBlending, CustomToneMapping, CylinderBufferGeometry, CylinderGeometry, Cylindrical, DataTexture, DataTexture2DArray, DataTexture3D, DataTextureLoader, DecrementStencilOp, DecrementWrapStencilOp, DefaultLoadingManager, DepthFormat, DepthStencilFormat, DepthTexture, DirectionalLight, DirectionalLightHelper, DiscreteInterpolant, DodecahedronBufferGeometry, DodecahedronGeometry, DoubleSide, DstAlphaFactor, DstColorFactor, DynamicBufferAttribute, DynamicCopyUsage, DynamicDrawUsage, DynamicReadUsage, EdgesGeometry, EdgesHelper, EllipseCurve, EqualDepth, EqualStencilFunc, EquirectangularReflectionMapping, EquirectangularRefractionMapping, Euler, EventDispatcher, ExtrudeBufferGeometry, ExtrudeGeometry, Face3, Face4, FaceColors, FileLoader, FlatShading, Float32Attribute, Float32BufferAttribute, Float64Attribute, Float64BufferAttribute, FloatType, Fog, FogExp2, Font, FontLoader, FrontSide, Frustum, GLBufferAttribute, GLSL1, GLSL3, GammaEncoding, Geometry, GeometryUtils, GreaterDepth, GreaterEqualDepth, GreaterEqualStencilFunc, GreaterStencilFunc, GridHelper, Group, HalfFloatType, HemisphereLight, HemisphereLightHelper, HemisphereLightProbe, IcosahedronBufferGeometry, IcosahedronGeometry, ImageBitmapLoader, ImageLoader, ImageUtils, ImmediateRenderObject, IncrementStencilOp, IncrementWrapStencilOp, InstancedBufferAttribute, InstancedBufferGeometry, InstancedInterleavedBuffer, InstancedMesh, Int16Attribute, Int16BufferAttribute, Int32Attribute, Int32BufferAttribute, Int8Attribute, Int8BufferAttribute, IntType, InterleavedBuffer, InterleavedBufferAttribute, Interpolant, InterpolateDiscrete, InterpolateLinear, InterpolateSmooth, InvertStencilOp, JSONLoader, KeepStencilOp, KeyframeTrack, LOD, LatheBufferGeometry, LatheGeometry, Layers, LensFlare, LessDepth, LessEqualDepth, LessEqualStencilFunc, LessStencilFunc, Light, LightProbe, Line, Line3, LineBasicMaterial, LineCurve, LineCurve3, LineDashedMaterial, LineLoop, LinePieces, LineSegments, LineStrip, LinearEncoding, LinearFilter, LinearInterpolant, LinearMipMapLinearFilter, LinearMipMapNearestFilter, LinearMipmapLinearFilter, LinearMipmapNearestFilter, LinearToneMapping, Loader, LoaderUtils, LoadingManager, LogLuvEncoding, LoopOnce, LoopPingPong, LoopRepeat, LuminanceAlphaFormat, LuminanceFormat, MOUSE, Material, MaterialLoader, MathUtils as Math, MathUtils, Matrix3, Matrix4, MaxEquation, Mesh, MeshBasicMaterial, MeshDepthMaterial, MeshDistanceMaterial, MeshFaceMaterial, MeshLambertMaterial, MeshMatcapMaterial, MeshNormalMaterial, MeshPhongMaterial, MeshPhysicalMaterial, MeshStandardMaterial, MeshToonMaterial, MinEquation, MirroredRepeatWrapping, MixOperation, MultiMaterial, MultiplyBlending, MultiplyOperation, NearestFilter, NearestMipMapLinearFilter, NearestMipMapNearestFilter, NearestMipmapLinearFilter, NearestMipmapNearestFilter, NeverDepth, NeverStencilFunc, NoBlending, NoColors, NoToneMapping, NormalAnimationBlendMode, NormalBlending, NotEqualDepth, NotEqualStencilFunc, NumberKeyframeTrack, Object3D, ObjectLoader, ObjectSpaceNormalMap, OctahedronBufferGeometry, OctahedronGeometry, OneFactor, OneMinusDstAlphaFactor, OneMinusDstColorFactor, OneMinusSrcAlphaFactor, OneMinusSrcColorFactor, OrthographicCamera, PCFShadowMap, PCFSoftShadowMap, PMREMGenerator, ParametricBufferGeometry, ParametricGeometry, Particle, ParticleBasicMaterial, ParticleSystem, ParticleSystemMaterial, Path, PerspectiveCamera, Plane, PlaneBufferGeometry, PlaneGeometry, PlaneHelper, PointCloud, PointCloudMaterial, PointLight, PointLightHelper, Points, PointsMaterial, PolarGridHelper, PolyhedronBufferGeometry, PolyhedronGeometry, PositionalAudio, PropertyBinding, PropertyMixer, QuadraticBezierCurve, QuadraticBezierCurve3, Quaternion, QuaternionKeyframeTrack, QuaternionLinearInterpolant, REVISION, RGBADepthPacking, RGBAFormat, RGBAIntegerFormat, RGBA_ASTC_10x10_Format, RGBA_ASTC_10x5_Format, RGBA_ASTC_10x6_Format, RGBA_ASTC_10x8_Format, RGBA_ASTC_12x10_Format, RGBA_ASTC_12x12_Format, RGBA_ASTC_4x4_Format, RGBA_ASTC_5x4_Format, RGBA_ASTC_5x5_Format, RGBA_ASTC_6x5_Format, RGBA_ASTC_6x6_Format, RGBA_ASTC_8x5_Format, RGBA_ASTC_8x6_Format, RGBA_ASTC_8x8_Format, RGBA_BPTC_Format, RGBA_ETC2_EAC_Format, RGBA_PVRTC_2BPPV1_Format, RGBA_PVRTC_4BPPV1_Format, RGBA_S3TC_DXT1_Format, RGBA_S3TC_DXT3_Format, RGBA_S3TC_DXT5_Format, RGBDEncoding, RGBEEncoding, RGBEFormat, RGBFormat, RGBIntegerFormat, RGBM16Encoding, RGBM7Encoding, RGB_ETC1_Format, RGB_ETC2_Format, RGB_PVRTC_2BPPV1_Format, RGB_PVRTC_4BPPV1_Format, RGB_S3TC_DXT1_Format, RGFormat, RGIntegerFormat, RawShaderMaterial, Ray, Raycaster, RectAreaLight, RedFormat, RedIntegerFormat, ReinhardToneMapping, RepeatWrapping, ReplaceStencilOp, ReverseSubtractEquation, RingBufferGeometry, RingGeometry, SRGB8_ALPHA8_ASTC_10x10_Format, SRGB8_ALPHA8_ASTC_10x5_Format, SRGB8_ALPHA8_ASTC_10x6_Format, SRGB8_ALPHA8_ASTC_10x8_Format, SRGB8_ALPHA8_ASTC_12x10_Format, SRGB8_ALPHA8_ASTC_12x12_Format, SRGB8_ALPHA8_ASTC_4x4_Format, SRGB8_ALPHA8_ASTC_5x4_Format, SRGB8_ALPHA8_ASTC_5x5_Format, SRGB8_ALPHA8_ASTC_6x5_Format, SRGB8_ALPHA8_ASTC_6x6_Format, SRGB8_ALPHA8_ASTC_8x5_Format, SRGB8_ALPHA8_ASTC_8x6_Format, SRGB8_ALPHA8_ASTC_8x8_Format, Scene, SceneUtils, ShaderChunk, ShaderLib, ShaderMaterial, ShadowMaterial, Shape, ShapeBufferGeometry, ShapeGeometry, ShapePath, ShapeUtils, ShortType, Skeleton, SkeletonHelper, SkinnedMesh, SmoothShading, Sphere, SphereBufferGeometry, SphereGeometry, Spherical, SphericalHarmonics3, Spline, SplineCurve, SplineCurve3, SpotLight, SpotLightHelper, Sprite, SpriteMaterial, SrcAlphaFactor, SrcAlphaSaturateFactor, SrcColorFactor, StaticCopyUsage, StaticDrawUsage, StaticReadUsage, StereoCamera, StreamCopyUsage, StreamDrawUsage, StreamReadUsage, StringKeyframeTrack, SubtractEquation, SubtractiveBlending, TOUCH, TangentSpaceNormalMap, TetrahedronBufferGeometry, TetrahedronGeometry, TextBufferGeometry, TextGeometry, Texture, TextureLoader, TorusBufferGeometry, TorusGeometry, TorusKnotBufferGeometry, TorusKnotGeometry, Triangle, TriangleFanDrawMode, TriangleStripDrawMode, TrianglesDrawMode, TubeBufferGeometry, TubeGeometry, UVMapping, Uint16Attribute, Uint16BufferAttribute, Uint32Attribute, Uint32BufferAttribute, Uint8Attribute, Uint8BufferAttribute, Uint8ClampedAttribute, Uint8ClampedBufferAttribute, Uniform, UniformsLib, UniformsUtils, UnsignedByteType, UnsignedInt248Type, UnsignedIntType, UnsignedShort4444Type, UnsignedShort5551Type, UnsignedShort565Type, UnsignedShortType, VSMShadowMap, Vector2, Vector3, Vector4, VectorKeyframeTrack, Vertex, VertexColors, VideoTexture, WebGL1Renderer, WebGLCubeRenderTarget, WebGLMultisampleRenderTarget, WebGLRenderTarget, WebGLRenderTargetCube, WebGLRenderer, WebGLUtils, WireframeGeometry, WireframeHelper, WrapAroundEnding, XHRLoader, ZeroCurvatureEnding, ZeroFactor, ZeroSlopeEnding, ZeroStencilOp, sRGBEncoding };
+export { ACESFilmicToneMapping, AddEquation, AddOperation, AdditiveAnimationBlendMode, AdditiveBlending, AlphaFormat, AlwaysDepth, AlwaysStencilFunc, AmbientLight, AmbientLightProbe, AnimatedGifTexture, AnimatedGifTextureAnimation, AnimationClip, AnimationLoader, AnimationMixer, AnimationObjectGroup, AnimationUtils, ArcCurve, ArrayCamera, ArrowHelper, Audio, AudioAnalyser, AudioContext, AudioListener, AudioLoader, AugmentMaterialOpacityModeMixed, AugmentMaterialOpacityModeStandard, AugmentMaterialRenderingModeMixedOpaque, AugmentMaterialRenderingModeMixedTransparent, AugmentMaterialRenderingModeStandard, AugmentObjectRenderingModeOpaque, AugmentObjectRenderingModeTransparent, AxesHelper, AxisHelper, BackSide, BasicDepthPacking, BasicShadowMap, BinaryTextureLoader, Bone, BooleanKeyframeTrack, BoundingBoxHelper, Box2, Box3, Box3Helper, BoxBufferGeometry, BoxGeometry, BoxHelper, BufferAttribute, BufferGeometry, BufferGeometryLoader, ByteStream, ByteType, Cache, Camera, CameraHelper, CanvasRenderer, CanvasTexture, CatmullRomCurve3, CineonToneMapping, CircleBufferGeometry, CircleGeometry, ClampToEdgeWrapping, Clock, ClosedSplineCurve3, Color, ColorKeyframeTrack, CompressedTexture, CompressedTextureLoader, ConeBufferGeometry, ConeGeometry, CubeCamera, BoxGeometry as CubeGeometry, CubeReflectionMapping, CubeRefractionMapping, CubeTexture, CubeTextureLoader, CubeUVReflectionMapping, CubeUVRefractionMapping, CubicBezierCurve, CubicBezierCurve3, CubicInterpolant, CullFaceBack, CullFaceFront, CullFaceFrontBack, CullFaceNone, Curve, CurvePath, CustomBlending, CustomToneMapping, CylinderBufferGeometry, CylinderGeometry, Cylindrical, DataParser, DataTexture, DataTexture2DArray, DataTexture3D, DataTextureLoader, DecrementStencilOp, DecrementWrapStencilOp, DefaultLoadingManager, DepthFormat, DepthStencilFormat, DepthTexture, DirectionalLight, DirectionalLightHelper, DiscreteInterpolant, DodecahedronBufferGeometry, DodecahedronGeometry, DoubleSide, DstAlphaFactor, DstColorFactor, DynamicBufferAttribute, DynamicCopyUsage, DynamicDrawUsage, DynamicReadUsage, EdgesGeometry, EdgesHelper, EllipseCurve, EqualDepth, EqualStencilFunc, EquirectangularReflectionMapping, EquirectangularRefractionMapping, Euler, EventDispatcher, ExtrudeBufferGeometry, ExtrudeGeometry, Face3, Face4, FaceColors, FileLoader, FlatShading, Float32Attribute, Float32BufferAttribute, Float64Attribute, Float64BufferAttribute, FloatType, Fog, FogExp2, Font, FontLoader, FrontFaceDirectionCCW, FrontFaceDirectionCW, FrontSide, Frustum, GLBufferAttribute, GLSL1, GLSL3, GammaEncoding, Geometry, GeometryUtils, GifReader, GifUtils, GreaterDepth, GreaterEqualDepth, GreaterEqualStencilFunc, GreaterStencilFunc, GridHelper, Group, HalfFloatType, HemisphereLight, HemisphereLightHelper, HemisphereLightProbe, IcosahedronBufferGeometry, IcosahedronGeometry, ImageBitmapLoader, ImageGifLoader, ImageLoader, ImageUtils, ImmediateRenderObject, IncrementStencilOp, IncrementWrapStencilOp, InstancedBufferAttribute, InstancedBufferGeometry, InstancedInterleavedBuffer, InstancedMesh, Int16Attribute, Int16BufferAttribute, Int32Attribute, Int32BufferAttribute, Int8Attribute, Int8BufferAttribute, IntType, InterleavedBuffer, InterleavedBufferAttribute, Interpolant, InterpolateDiscrete, InterpolateLinear, InterpolateSmooth, InvertStencilOp, JSONLoader, KeepStencilOp, KeyframeTrack, LOD, LatheBufferGeometry, LatheGeometry, Layers, LensFlare, LessDepth, LessEqualDepth, LessEqualStencilFunc, LessStencilFunc, Light, LightProbe, Line, Line3, LineBasicMaterial, LineCurve, LineCurve3, LineDashedMaterial, LineLoop, LinePieces, LineSegments, LineStrip, LinearEncoding, LinearFilter, LinearInterpolant, LinearMipMapLinearFilter, LinearMipMapNearestFilter, LinearMipmapLinearFilter, LinearMipmapNearestFilter, LinearToneMapping, Loader, LoaderUtils, LoadingManager, LogLuvEncoding, LoopOnce, LoopPingPong, LoopRepeat, LuminanceAlphaFormat, LuminanceFormat, MOUSE, Material, MaterialLoader, MathUtils as Math, MathUtils, Matrix3, Matrix4, MaxEquation, Mesh, MeshBasicMaterial, MeshDepthMaterial, MeshDistanceMaterial, MeshFaceMaterial, MeshLambertMaterial, MeshMatcapMaterial, MeshNormalMaterial, MeshPhongMaterial, MeshPhysicalMaterial, MeshStandardMaterial, MeshToonMaterial, MinEquation, MirroredRepeatWrapping, MixOperation, MultiMaterial, MultiplyBlending, MultiplyOperation, NearestFilter, NearestMipMapLinearFilter, NearestMipMapNearestFilter, NearestMipmapLinearFilter, NearestMipmapNearestFilter, NeverDepth, NeverStencilFunc, NoBlending, NoColors, NoToneMapping, NormalAnimationBlendMode, NormalBlending, NotEqualDepth, NotEqualStencilFunc, NumberKeyframeTrack, Object3D, ObjectLoader, ObjectSpaceNormalMap, OctahedronBufferGeometry, OctahedronGeometry, OneFactor, OneMinusDstAlphaFactor, OneMinusDstColorFactor, OneMinusSrcAlphaFactor, OneMinusSrcColorFactor, OrthographicCamera, PCFShadowMap, PCFSoftShadowMap, PMREMGenerator, ParametricBufferGeometry, ParametricGeometry, Particle, ParticleBasicMaterial, ParticleSystem, ParticleSystemMaterial, Path, PerspectiveCamera, Plane, PlaneBufferGeometry, PlaneGeometry, PlaneHelper, PointCloud, PointCloudMaterial, PointLight, PointLightHelper, Points, PointsMaterial, PolarGridHelper, PolyhedronBufferGeometry, PolyhedronGeometry, PositionalAudio, PropertyBinding, PropertyMixer, QuadraticBezierCurve, QuadraticBezierCurve3, Quaternion, QuaternionKeyframeTrack, QuaternionLinearInterpolant, REVISION, RGBADepthPacking, RGBAFormat, RGBAIntegerFormat, RGBA_ASTC_10x10_Format, RGBA_ASTC_10x5_Format, RGBA_ASTC_10x6_Format, RGBA_ASTC_10x8_Format, RGBA_ASTC_12x10_Format, RGBA_ASTC_12x12_Format, RGBA_ASTC_4x4_Format, RGBA_ASTC_5x4_Format, RGBA_ASTC_5x5_Format, RGBA_ASTC_6x5_Format, RGBA_ASTC_6x6_Format, RGBA_ASTC_8x5_Format, RGBA_ASTC_8x6_Format, RGBA_ASTC_8x8_Format, RGBA_BPTC_Format, RGBA_ETC2_EAC_Format, RGBA_PVRTC_2BPPV1_Format, RGBA_PVRTC_4BPPV1_Format, RGBA_S3TC_DXT1_Format, RGBA_S3TC_DXT3_Format, RGBA_S3TC_DXT5_Format, RGBDEncoding, RGBEEncoding, RGBEFormat, RGBFormat, RGBIntegerFormat, RGBM16Encoding, RGBM7Encoding, RGB_ETC1_Format, RGB_ETC2_Format, RGB_PVRTC_2BPPV1_Format, RGB_PVRTC_4BPPV1_Format, RGB_S3TC_DXT1_Format, RGFormat, RGIntegerFormat, RawShaderMaterial, Ray, Raycaster, RectAreaLight, RedFormat, RedIntegerFormat, ReinhardToneMapping, RepeatWrapping, ReplaceStencilOp, ReverseSubtractEquation, RingBufferGeometry, RingGeometry, SRGB8_ALPHA8_ASTC_10x10_Format, SRGB8_ALPHA8_ASTC_10x5_Format, SRGB8_ALPHA8_ASTC_10x6_Format, SRGB8_ALPHA8_ASTC_10x8_Format, SRGB8_ALPHA8_ASTC_12x10_Format, SRGB8_ALPHA8_ASTC_12x12_Format, SRGB8_ALPHA8_ASTC_4x4_Format, SRGB8_ALPHA8_ASTC_5x4_Format, SRGB8_ALPHA8_ASTC_5x5_Format, SRGB8_ALPHA8_ASTC_6x5_Format, SRGB8_ALPHA8_ASTC_6x6_Format, SRGB8_ALPHA8_ASTC_8x5_Format, SRGB8_ALPHA8_ASTC_8x6_Format, SRGB8_ALPHA8_ASTC_8x8_Format, Scene, SceneUtils, ShaderChunk, ShaderLib, ShaderMaterial, ShadowMaterial, Shape, ShapeBufferGeometry, ShapeGeometry, ShapePath, ShapeUtils, ShortType, Skeleton, SkeletonHelper, SkinnedMesh, SmoothShading, Sphere, SphereBufferGeometry, SphereGeometry, Spherical, SphericalHarmonics3, Spline, SplineCurve, SplineCurve3, SpotLight, SpotLightHelper, Sprite, SpriteMaterial, SrcAlphaFactor, SrcAlphaSaturateFactor, SrcColorFactor, StaticCopyUsage, StaticDrawUsage, StaticReadUsage, StereoCamera, StreamCopyUsage, StreamDrawUsage, StreamReadUsage, StringKeyframeTrack, SubtractEquation, SubtractiveBlending, TOUCH, TangentSpaceNormalMap, TetrahedronBufferGeometry, TetrahedronGeometry, TextBufferGeometry, TextGeometry, Texture, TextureLoader, TorusBufferGeometry, TorusGeometry, TorusKnotBufferGeometry, TorusKnotGeometry, Triangle, TriangleFanDrawMode, TriangleStripDrawMode, TrianglesDrawMode, TubeBufferGeometry, TubeGeometry, UVMapping, Uint16Attribute, Uint16BufferAttribute, Uint32Attribute, Uint32BufferAttribute, Uint8Attribute, Uint8BufferAttribute, Uint8ClampedAttribute, Uint8ClampedBufferAttribute, Uniform, UniformsLib, UniformsUtils, UnsignedByteType, UnsignedInt248Type, UnsignedIntType, UnsignedShort4444Type, UnsignedShort5551Type, UnsignedShort565Type, UnsignedShortType, VSMShadowMap, Vector2, Vector3, Vector4, VectorKeyframeTrack, Vertex, VertexColors, VideoTexture, WebGL1Renderer, WebGLCubeRenderTarget, WebGLMultisampleRenderTarget, WebGLRenderTarget, WebGLRenderTargetCube, WebGLRenderer, WebGLUtils, WireframeGeometry, WireframeHelper, WrapAroundEnding, XHRLoader, ZeroCurvatureEnding, ZeroFactor, ZeroSlopeEnding, ZeroStencilOp, sRGBEncoding };

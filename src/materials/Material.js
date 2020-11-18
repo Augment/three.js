@@ -1,7 +1,6 @@
 import { EventDispatcher } from '../core/EventDispatcher.js';
-import { FrontSide, FlatShading, NormalBlending, LessEqualDepth, AddEquation, OneMinusSrcAlphaFactor, SrcAlphaFactor, AugmentMaterialOpacityModeStandard, AugmentMaterialRenderingModeStandard } from '../constants.js';
+import { FrontSide, FlatShading, NormalBlending, LessEqualDepth, AddEquation, OneMinusSrcAlphaFactor, SrcAlphaFactor, AlwaysStencilFunc, KeepStencilOp, AugmentMaterialOpacityModeStandard, AugmentMaterialRenderingModeStandard } from '../constants.js';
 import { MathUtils } from '../math/MathUtils.js';
-
 let materialId = 0;
 
 function Material() {
