@@ -201,6 +201,7 @@ function WebXRManager( renderer ) {
 
 	this.submitFrame = function () {};
 
+	this.dispose = function () {};
 }
 
 export { WebXRManager };
